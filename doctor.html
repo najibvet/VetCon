@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VetBook - Dasbor Dokter Praktisi</title>
+  <title>VetBook - Dasbor Dokter</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -13,21 +13,25 @@
     .back-link { display: inline-block; margin-bottom: 15px; font-size: 12px; color: #0f766e; text-decoration: none; font-weight: bold; }
     
     .patient-card { background: #f9fafb; border: 1px solid #e5e7eb; padding: 14px; border-radius: 10px; margin-bottom: 12px; font-size: 13px; }
-    .patient-card strong { color: #115e59; font-size: 14px; }
     .btn-enter-room { display: block; background: #0f766e; color: white; text-align: center; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 12px; margin-top: 10px; }
-    .btn-enter-room:hover { background: #115e59; }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <a href="index.html" class="back-link">&larr; Kembali ke Gerbang Utama</a>
-    <h2>🩺 Antrean Pasien & Ruang Praktik Dokter</h2>
-    
-    <div id="patient-list">Memuat daftar antrean pasien...</div>
+    <a href="index.html" class="back-link">&larr; Keluar ke Gerbang Utama</a>
+    <h2>🩺 Antrean Konsultasi Dokter Praktisi</h2>
+    <div id="patient-list">Memuat antrean...</div>
   </div>
 
   <script>
+    // Proteksi Keamanan Role Dokter
+    const currentRole = sessionStorage.getItem("vet_role");
+    if (currentRole !== "doctor" && currentRole !== "admin") {
+      alert("Akses ditolak! Silakan login sebagai Dokter.");
+      window.location.href = "index.html";
+    }
+
     const SUPABASE_URL = 'https://tdoostchqlatiwzuxcmo.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_tH-AJIgmuCYlwAjwXUydiw_h_9k902H';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -40,7 +44,7 @@
 
       const listDiv = document.getElementById('patient-list');
       if (error || !data || data.length === 0) {
-        listDiv.innerHTML = '<p style="font-size:12px; color:#6b7280; text-align:center; margin-top:20px;">Belum ada pasien dalam antrean.</p>';
+        listDiv.innerHTML = '<p style="font-size:12px; color:#6b7280;">Belum ada antrean.</p>';
         return;
       }
 
@@ -49,10 +53,9 @@
         const chatLink = `consultation.html?id=${tx.id}&role=doctor`;
         html += `
           <div class="patient-card">
-            <strong>Klien: ${tx.client_name}</strong><br>
+            <strong>Pasien / Klien: ${tx.client_name}</strong><br>
             Layanan: ${tx.service}<br>
-            WhatsApp Klien: ${tx.whatsapp}<br>
-            Status Sesi: <b>${tx.status}</b>
+            Status Pembayaran: <b style="color:${tx.status === 'Paid' ? 'green' : 'orange'}">${tx.status}</b>
             <a href="${chatLink}" target="_blank" class="btn-enter-room">Masuk Ruang Chat Dokter &rarr;</a>
           </div>
         `;
