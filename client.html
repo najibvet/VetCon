@@ -44,8 +44,8 @@
     <div class="form-group">
       <label>Pilih Layanan Dokter</label>
       <select id="serviceType" onchange="updatePrice()">
-        <option value="Konsultasi Kucing/Anjing (drh. Najib)" data-price="50000">Konsultasi Small Animal (drh. Najib) - Rp50.000</option>
-        <option value="Konsultasi Unggas/Songbird (drh. Bintang)" data-price="45000">Konsultasi Unggas/Songbird (drh. Bintang) - Rp45.000</option>
+        <option value="Konsultasi Pet/Poultry (drh. Najib)" data-price="50000">Konsultasi Small Animal (drh. Najib) - Rp50.000</option>
+        <option value="Konsultasi Ternak (drh. Bintang)" data-price="45000">Konsultasi Unggas/Songbird (drh. Bintang) - Rp45.000</option>
       </select>
     </div>
 
@@ -59,7 +59,7 @@
     const SUPABASE_KEY = 'sb_publishable_tH-AJIgmuCYlwAjwXUydiw_h_9k902H';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let selectedPrice = 50000;
+    let selectedPrice = 45000;
 
     function updatePrice() {
       const select = document.getElementById('serviceType');
