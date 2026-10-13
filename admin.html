@@ -19,7 +19,7 @@
     
     .transaction-item { background: #f9fafb; border: 1px solid #e5e7eb; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 12px; }
     .action-btns { display: flex; gap: 6px; margin-top: 8px; }
-    .action-btn { padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: bold; text-align: center; cursor: pointer; border: none; }
+    .action-btn { padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: bold; text-align: center; cursor: pointer; border: none; display: inline-block; }
     .btn-wa { background: #25d366; color: white; }
     .btn-chat { background: #0f766e; color: white; }
   </style>
@@ -50,90 +50,4 @@
       <input type="number" id="amount" placeholder="Contoh: 50000">
     </div>
 
-    <button class="btn" onclick="createTransaction()">Buat Sesi & Hasilkan Tautan</button>
-
-    <h2 style="margin-top: 24px;">📋 Daftar Transaksi & Sesi Aktif</h2>
-    <div id="transaction-list">Memuat data transaksi...</div>
-  </div>
-
-  <script>
-    const SUPABASE_URL = 'https://tdoostchqlatiwzuxcmo.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_tH-AJIgmuCYlwAjwXUydiw_h_9k902H';
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    async function createTransaction() {
-      const clientName = document.getElementById('clientName').value.trim();
-      const whatsapp = document.getElementById('clientPhone').value.trim();
-      const service = document.getElementById('serviceType').value;
-      const amount = parseFloat(document.getElementById('amount').value) || 0;
-
-      if (!clientName || !whatsapp || amount <= 0) {
-        alert("Mohon lengkapi semua data transaksi dengan benar.");
-        return;
-      }
-
-      const platformFee = amount * 0.15;
-      const doctorPayout = amount * 0.85;
-
-      const { data, error } = await supabaseClient.from('transactions').insert([
-        {
-          client_name: clientName,
-          whatsapp: whatsapp,
-          service: service,
-          amount: amount,
-          platform_fee: platformFee,
-          doctor_payout: doctorPayout,
-          status: 'Pending',
-          chat_history: '[]'
-        }
-      ]).select().single();
-
-      if (error) {
-        alert("Gagal membuat transaksi: " + error.message);
-      } else {
-        alert("Transaksi berhasil dibuat!");
-        document.getElementById('clientName').value = '';
-        document.getElementById('clientPhone').value = '';
-        document.getElementById('amount').value = '';
-        loadTransactions();
-      }
-    }
-
-    async function loadTransactions() {
-      const { data, error } = await supabaseClient
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      const listDiv = document.getElementById('transaction-list');
-      if (error || !data || data.length === 0) {
-        listDiv.innerHTML = '<p style="font-size:12px; color:#6b7280; text-align:center; margin-top:10px;">Belum ada transaksi.</p>';
-        return;
-      }
-
-      let html = '';
-      data.forEach(tx => {
-        const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
-        const chatLink = `${baseUrl}consultation.html?id=${tx.id}&role=client`;
-        const waText = encodeURIComponent(`Halo Kak ${tx.client_name}, terima kasih telah memesan layanan ${tx.service} di VetBook. Silakan akses ruang konsultasi Anda melalui tautan berikut: ${chatLink}`);
-        const waLink = `https://wa.me/${tx.whatsapp}?text=${waText}`;
-
-        html += `
-          <div class="transaction-item">
-            <strong>${tx.client_name}</strong> (${tx.service})<br>
-            WhatsApp: ${tx.whatsapp} | Status: <b>${tx.status}</b><br>
-            <div class="action-btns">
-              <a href="${waLink}" target="_blank" class="action-btn btn-wa">💬 Kirim WhatsApp</a>
-              <a href="${chatLink}" target="_blank" class="action-btn btn-chat">🩺 Buka Ruang Chat</a>
-            </div>
-          </div>
-        `;
-      });
-      listDiv.innerHTML = html;
-    }
-
-    loadTransactions();
-  </script>
-</body>
-      </html>
-      
+    
