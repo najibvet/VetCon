@@ -16,8 +16,8 @@
     .menu-list { display: flex; flex-direction: column; gap: 12px; }
     .btn { display: block; width: 100%; padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: bold; text-decoration: none; text-align: center; cursor: pointer; transition: background 0.2s; border: none; }
     
-    .btn-client { background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-    .btn-client:hover { background-color: #dcfce7; }
+    .btn-client { background-color: #0f766e; color: white; }
+    .btn-client:hover { background-color: #115e59; }
     
     .btn-doctor { background-color: #f0fdfa; color: #115e59; border: 1px solid #ccfbf1; }
     .btn-doctor:hover { background-color: #ccfbf1; }
@@ -36,15 +36,41 @@
     <p>Solusi layanan kesehatan hewan peliharaan & unggas profesional langsung dalam satu genggaman.</p>
 
     <div class="menu-list">
-      <a href="client.html" class="btn btn-client">🐾 Masuk sebagai Klien (Pemilik Hewan)</a>
-      <a href="doctor.html" class="btn btn-doctor">🩺 Masuk sebagai Dokter Praktisi</a>
-      <a href="admin.html" class="btn btn-admin">🔐 Panel Kontrol Admin</a>
+      <a href="client.html" class="btn btn-client">🐾 Masuk / Booking Konsultasi (Klien)</a>
+      <button class="btn btn-doctor" onclick="loginDoctor()">🩺 Masuk sebagai Dokter Praktisi</button>
+      <button class="btn btn-admin" onclick="loginAdmin()">🔐 Panel Kontrol Admin</button>
     </div>
 
     <div class="footer-note">
       &copy; 2026 VetBook Medical System. All rights reserved.
     </div>
   </div>
+
+  <script>
+    // PIN Akses Keamanan
+    const DOCTOR_PIN = "1234";
+    const ADMIN_PIN = "9999";
+
+    function loginDoctor() {
+      const pin = prompt("Masukkan PIN Akses Dokter:");
+      if (pin === DOCTOR_PIN) {
+        sessionStorage.setItem("vet_role", "doctor");
+        window.location.href = "doctor.html";
+      } else if (pin !== null) {
+        alert("PIN Dokter salah!");
+      }
+    }
+
+    function loginAdmin() {
+      const pin = prompt("Masukkan PIN Akses Admin:");
+      if (pin === ADMIN_PIN) {
+        sessionStorage.setItem("vet_role", "admin");
+        window.location.href = "admin.html";
+      } else if (pin !== null) {
+        alert("PIN Admin salah!");
+      }
+    }
+  </script>
 
 </body>
 </html>
