@@ -7,104 +7,108 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: #f3f4f6; color: #1f2937; padding: 12px; display: flex; justify-content: center; min-height: 100vh; }
-    .container { width: 100%; max-width: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; height: 92vh; overflow: hidden; }
+    body { background-color: #f3f4f6; color: #1f2937; display: flex; flex-direction: column; height: 100vh; }
     
-    header { background: #0f766e; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-    header h3 { font-size: 14px; font-weight: bold; }
-    header span { font-size: 11px; opacity: 0.9; }
-
-    /* Modal / Popup Pembayaran */
-    .pay-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
-    .pay-card { background: white; width: 100%; max-width: 400px; padding: 20px; border-radius: 16px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-    .pay-card h3 { color: #0f766e; font-size: 16px; margin-bottom: 8px; }
-    .pay-box { background: #f0fdf4; border: 1.5px dashed #166534; padding: 14px; border-radius: 12px; margin: 14px 0; text-align: left; }
-    .pay-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 12px; }
+    header { background: #0f766e; color: white; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; gap: 8px; flex-shrink: 0; }
+    #room-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+    .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .timer-badge { background: #ef4444; color: white; padding: 3px 6px; border-radius: 6px; font-size: 11px; }
+    .btn-end { background: #991b1b; color: white; border: none; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; }
+    .btn-end:hover { background: #7f1d1d; }
+    
+    .chat-container { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #f9fafb; }
+    
+    /* Wrapper Pesan & Label Nama */
+    .message-wrapper { display: flex; flex-direction: column; max-width: 75%; }
+    .message-wrapper.client { align-self: flex-start; }
+    .message-wrapper.doctor { align-self: flex-end; align-items: flex-end; }
+    
+    .sender-name { font-size: 11px; font-weight: bold; color: #4b5563; margin-bottom: 2px; padding: 0 4px; }
+    
+    .message { padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.4; word-wrap: break-word; }
+    .message.client { background: #e0f2fe; color: #0369a1; border-bottom-left-radius: 2px; }
+    .message.doctor { background: #f0fdf4; color: #166534; border-bottom-right-radius: 2px; }
+    .message img, .message video { max-width: 100%; border-radius: 8px; margin-top: 6px; display: block; }
+    
+    .chat-footer { padding: 12px; background: white; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; align-items: center; }
+    input[type="text"] { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 20px; font-size: 13px; outline: none; }
+    .btn-send { background: #0f766e; color: white; border: none; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; }
+    .btn-attach { background: #f3f4f6; border: 1px solid #d1d5db; padding: 10px 12px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+    
+    /* Tampilan Lock Screen / Modal Virtual Account Pembayaran */
+    .lock-screen { text-align: center; padding: 24px 20px; background: white; margin: auto; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-width: 400px; width: 90%; }
+    .lock-icon { font-size: 36px; margin-bottom: 6px; }
+    .lock-title { font-size: 16px; font-weight: bold; color: #0f766e; margin-bottom: 6px; }
+    
+    .bank-box { background: #f0fdf4; border: 1.5px dashed #166534; padding: 14px; border-radius: 12px; margin: 12px 0; font-size: 12px; text-align: left; }
+    .pay-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .pay-row:last-child { margin-bottom: 0; }
-    .copy-btn { background: #0f766e; color: white; border: none; padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: bold; }
-    .btn-wa { background: #22c55e; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
-
-    /* Area Chat */
-    .chat-box { flex: 1; padding: 14px; overflow-y: auto; background: #f9fafb; display: flex; flex-direction: column; gap: 12px; }
-    .msg-group { display: flex; flex-direction: column; max-width: 80%; }
-    .msg-group.client-group { align-self: flex-end; align-items: flex-end; }
-    .msg-group.doctor-group { align-self: flex-start; align-items: flex-start; }
-
-    .sender-label { font-size: 10.5px; font-weight: bold; margin-bottom: 3px; padding: 0 4px; }
-    .client-group .sender-label { color: #15803d; }
-    .doctor-group .sender-label { color: #0f766e; }
-
-    .msg { padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; word-break: break-word; }
-    .msg-client { background: #dcfce7; color: #166534; border-bottom-right-radius: 2px; }
-    .msg-doctor { background: #ffffff; color: #1f2937; border: 1px solid #e5e7eb; border-bottom-left-radius: 2px; }
-    .chat-media { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 4px; display: block; cursor: pointer; }
-
-    /* Input Footer */
-    footer { padding: 10px; border-top: 1px solid #e5e7eb; display: flex; gap: 6px; background: white; align-items: center; }
-    footer input[type="text"] { flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; }
-    .btn-attach { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 9px 12px; border-radius: 8px; font-size: 15px; cursor: pointer; }
-    .btn-send { background: #0f766e; color: white; border: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; }
+    .copy-btn { background: #0f766e; color: white; border: none; padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: bold; margin-left: 6px; }
+    .copy-btn:active { background: #115e59; }
+    
+    .btn-confirm-wa { display: block; width: 100%; background: #22c55e; color: white; text-decoration: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 13px; margin-top: 10px; }
   </style>
 </head>
 <body>
 
-  <!-- Modal Pembayaran Klien -->
-  <div id="payModal" class="pay-overlay" style="display: none;">
-    <div class="pay-card">
-      <div style="font-size:32px; margin-bottom:6px;">💳</div>
-      <h3>Selesaikan Pembayaran</h3>
-      <p style="font-size:11px; color:#6b7280;">Transfer sesuai <b>nominal unik</b> di bawah ini agar verifikasi berjalan cepat:</p>
-
-      <div class="pay-box">
-        <div class="pay-row">
-          <span>Bank Tujuan:</span>
-          <strong>Bank BCA</strong>
-        </div>
-        <div class="pay-row">
-          <span>No. Rekening:</span>
-          <div>
-            <strong id="accNum">0300664695</strong>
-            <button class="copy-btn" onclick="copyText('0300664695')">Salin</button>
-          </div>
-        </div>
-        <div class="pay-row">
-          <span>Atas Nama:</span>
-          <strong>Nur Rohman Najib</strong>
-        </div>
-        <hr style="margin:8px 0; border:0; border-top:1px dashed #bbf7d0;">
-        <div class="pay-row">
-          <span>Total Transfer:</span>
-          <div>
-            <strong id="payAmount" style="color:#15803d; font-size:14px;">Rp45.000</strong>
-            <button class="copy-btn" onclick="copyPayAmount()">Salin</button>
-          </div>
-        </div>
-        <p style="font-size:9.5px; color:#15803d; margin-top:4px;">*Sudah termasuk kode unik transaksi.</p>
-      </div>
-
-      <button class="btn-wa" onclick="confirmWA()">📲 Konfirmasi Bukti Transfer via WA</button>
+  <header id="chat-header" style="display:none;">
+    <div id="room-title">Konsultasi TeleVET</div>
+    <div class="header-right">
+      <div id="timer-container" style="display:none;"><span id="timer" class="timer-badge">15:00</span></div>
+      <button class="btn-end" onclick="endConsultation()">Akhiri Sesi</button>
     </div>
+  </header>
+
+  <!-- Lock Screen Pembayaran Virtual Account -->
+  <div id="payment-lock" class="lock-screen" style="display:none;">
+    <div class="lock-icon">💳</div>
+    <div class="lock-title">Selesaikan Pembayaran</div>
+    <p style="font-size:11px; color:#6b7280;">Transfer sesuai <b>nominal unik</b> di bawah ini agar verifikasi pembayaran dapat diproses dengan cepat:</p>
+    
+    <div class="bank-box">
+      <div class="pay-row">
+        <span>Bank Tujuan:</span>
+        <strong>Bank BCA</strong>
+      </div>
+      <div class="pay-row">
+        <span>No. Rekening / VA:</span>
+        <div>
+          <strong>0300664695</strong>
+          <button class="copy-btn" onclick="copyText('0300664695')">Salin</button>
+        </div>
+      </div>
+      <div class="pay-row">
+        <span>Atas Nama:</span>
+        <strong>Nur Rohman Najib</strong>
+      </div>
+      <hr style="margin:8px 0; border:0; border-top:1px dashed #bbf7d0;">
+      <div class="pay-row">
+        <span>Total Transfer:</span>
+        <div>
+          <strong id="lock-price" style="color:#15803d; font-size:14px;">Rp-</strong>
+          <button class="copy-btn" onclick="copyExactPrice()">Salin</button>
+        </div>
+      </div>
+      <p style="font-size:9.5px; color:#15803d; margin-top:4px;">*Sudah termasuk kode unik transaksi.</p>
+    </div>
+
+    <a id="wa-confirm-btn" href="#" target="_blank" class="btn-confirm-wa">📲 Konfirmasi Bukti Transfer via WA</a>
   </div>
 
-  <div class="container">
-    <header>
-      <div>
-        <h3 id="chatTitle">Ruang Konsultasi</h3>
-        <span id="chatSub">Menghubungkan dengan Dokter...</span>
-      </div>
-      <button id="btnEndSession" style="display:none; background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;" onclick="endSession()">Akhiri Sesi</button>
-    </header>
+  <div id="expired-lock" class="lock-screen" style="display:none;">
+    <div class="lock-icon">🏁</div>
+    <div class="lock-title" style="color:#1e3a8a;">Sesi Konsultasi Selesai</div>
+    <p style="font-size:13px; color:#4b5563;">Konsultasi ini telah diakhiri atau batas waktunya telah habis. Terima kasih telah menggunakan layanan TeleVET.</p>
+  </div>
 
-    <div class="chat-box" id="chatBox">
-      <!-- Chat dengan Label Pengirim Akan Tampil Di Sini -->
-    </div>
+  <div id="chat-box" class="chat-container" style="display:none;"></div>
 
-    <footer>
-      <button class="btn-attach" onclick="document.getElementById('fileInput').click()" title="Kirim Foto/Video">📎</button>
-      <input type="file" id="fileInput" accept="image/*,video/*" style="display:none;" onchange="uploadMedia(event)">
-      <input type="text" id="msgInput" placeholder="Ketik pesan konsultasi..." onkeypress="handleKey(event)">
-      <button class="btn-send" id="btnSend" onclick="sendMsg()">Kirim</button>
-    </footer>
+  <div id="input-area" class="chat-footer" style="display:none;">
+    <label class="btn-attach" title="Kirim Gambar/Video">
+      📎 <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" onchange="handleMediaUpload(event)">
+    </label>
+    <input type="text" id="messageInput" placeholder="Ketik pesan..." onkeypress="handleKeyPress(event)">
+    <button class="btn-send" onclick="sendMessage()">Kirim</button>
   </div>
 
   <script>
@@ -114,11 +118,17 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const txId = urlParams.get('id');
-    const userRole = urlParams.get('role') || 'client';
+    const role = urlParams.get('role') || 'client'; // client, doctor, admin
 
-    let currentTx = null;
-    let exactAmount = 45000;
+    let currentTransaction = null;
+    let chatHistory = [];
+    let timerInterval = null;
+    let pollInterval = null;
+    let currentRemaining = 900;
+    let isTimerRunning = false;
+    let calculatedExactPrice = 45000;
 
+    // Menghasilkan 3 digit angka kode unik konsisten dari ID transaksi (mencegah error NaN pada UUID)
     function generateUniqueCode(str) {
       if (!str) return Math.floor(Math.random() * 899) + 100;
       let hash = 0;
@@ -128,175 +138,195 @@
       return (Math.abs(hash) % 899) + 100;
     }
 
-    async function loadTransaction() {
+    async function initConsultation() {
       if (!txId) return;
 
-      const { data } = await supabaseClient
+      await fetchLatestData();
+
+      supabaseClient
+        .channel('public:transactions-' + txId)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${txId}` }, payload => {
+          handleIncomingData(payload.new);
+        })
+        .subscribe();
+
+      pollInterval = setInterval(fetchLatestData, 3000);
+    }
+
+    async function fetchLatestData() {
+      const { data, error } = await supabaseClient
         .from('transactions')
         .select('*')
         .eq('id', txId)
         .single();
 
-      if (data) {
-        currentTx = data;
-        
-        const baseAmount = Number(data.amount) || 45000;
-        const uniqueCode = generateUniqueCode(data.id);
-        exactAmount = baseAmount + uniqueCode;
-
-        document.getElementById('payAmount').innerText = `Rp${exactAmount.toLocaleString('id-ID')}`;
-        document.getElementById('chatTitle').innerText = data.service || 'Ruang Konsultasi';
-        document.getElementById('chatSub').innerText = `Klien: ${data.client_name || 'Klien'}`;
-
-        if (userRole === 'doctor') {
-          document.getElementById('btnEndSession').style.display = 'block';
-        }
-
-        if (data.status === 'Pending' && userRole === 'client') {
-          document.getElementById('payModal').style.display = 'flex';
-        } else {
-          document.getElementById('payModal').style.display = 'none';
-        }
-
-        renderChat(data.chat_history);
+      if (!error && data) {
+        handleIncomingData(data);
       }
     }
 
-    function extractDoctorName(serviceStr) {
-      if (!serviceStr) return "Dokter Praktisi";
-      const match = serviceStr.match(/\((drh\.[^\)]+)\)/i);
-      return match ? match[1] : "Dokter Praktisi";
-    }
-
-    function extractClientName(clientStr) {
-      if (!clientStr) return "Klien";
-      return clientStr.split('(')[0].trim();
-    }
-
-    function renderChat(chatHistoryJson) {
-      const box = document.getElementById('chatBox');
-      box.innerHTML = '';
-
-      let messages = [];
+    function handleIncomingData(newData) {
+      currentTransaction = newData;
+      
+      if (newData.remaining_seconds !== undefined && !isTimerRunning) {
+        currentRemaining = newData.remaining_seconds;
+      }
+      
       try {
-        messages = typeof chatHistoryJson === 'string' ? JSON.parse(chatHistoryJson) : (chatHistoryJson || []);
-      } catch (e) { messages = []; }
+        const incomingHistory = JSON.parse(newData.chat_history || '[]');
+        if (JSON.stringify(incomingHistory) !== JSON.stringify(chatHistory)) {
+          chatHistory = incomingHistory;
+          renderChat();
+        }
+      } catch(e) {}
 
-      const clientName = currentTx ? extractClientName(currentTx.client_name) : "Klien";
-      const doctorName = currentTx ? extractDoctorName(currentTx.service) : "Dokter Praktisi";
+      checkStatus();
+    }
 
-      messages.forEach(m => {
-        const groupDiv = document.createElement('div');
-        const isClient = m.role === 'client';
-        groupDiv.className = `msg-group ${isClient ? 'client-group' : 'doctor-group'}`;
+    function checkStatus() {
+      if (!currentTransaction) return;
 
-        const senderLabel = document.createElement('div');
-        senderLabel.className = 'sender-label';
-        senderLabel.innerText = isClient ? clientName : doctorName;
-        groupDiv.appendChild(senderLabel);
+      if (currentTransaction.status === 'Completed' || currentRemaining <= 0) {
+        document.getElementById('expired-lock').style.display = 'block';
+        document.getElementById('payment-lock').style.display = 'none';
+        document.getElementById('chat-header').style.display = 'none';
+        document.getElementById('chat-box').style.display = 'none';
+        document.getElementById('input-area').style.display = 'none';
+        if (timerInterval) clearInterval(timerInterval);
+        if (pollInterval) clearInterval(pollInterval);
+        return;
+      }
 
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `msg ${isClient ? 'msg-client' : 'msg-doctor'}`;
+      if (currentTransaction.status === 'Paid' || role === 'doctor' || role === 'admin') {
+        document.getElementById('payment-lock').style.display = 'none';
+        document.getElementById('chat-header').style.display = 'flex';
+        document.getElementById('chat-box').style.display = 'flex';
 
-        if (m.type === 'image') {
-          msgDiv.innerHTML = `<a href="${m.url}" target="_blank"><img src="${m.url}" class="chat-media" alt="Foto"></a>`;
-          if (m.text) msgDiv.innerHTML += `<div>${m.text}</div>`;
-        } else if (m.type === 'video') {
-          msgDiv.innerHTML = `<video src="${m.url}" controls class="chat-media"></video>`;
-          if (m.text) msgDiv.innerHTML += `<div>${m.text}</div>`;
+        if (role !== 'admin' && (role !== 'client' || currentRemaining > 0)) {
+          document.getElementById('input-area').style.display = 'flex';
         } else {
-          msgDiv.innerText = m.text;
+          document.getElementById('input-area').style.display = 'none';
         }
 
-        groupDiv.appendChild(msgDiv);
-        box.appendChild(groupDiv);
-      });
+        document.getElementById('room-title').innerText = `${currentTransaction.client_name}`;
 
-      box.scrollTop = box.scrollHeight;
-    }
-
-    async function sendMsg() {
-      const input = document.getElementById('msgInput');
-      const text = input.value.trim();
-      if (!text || !currentTx) return;
-
-      let messages = [];
-      try {
-        messages = typeof currentTx.chat_history === 'string' ? JSON.parse(currentTx.chat_history) : (currentTx.chat_history || []);
-      } catch (e) { messages = []; }
-
-      messages.push({ role: userRole, text: text, time: new Date().toISOString() });
-
-      const { error } = await supabaseClient
-        .from('transactions')
-        .update({ chat_history: JSON.stringify(messages) })
-        .eq('id', txId);
-
-      if (!error) {
-        input.value = '';
-        currentTx.chat_history = JSON.stringify(messages);
-        renderChat(messages);
-      }
-    }
-
-    async function uploadMedia(event) {
-      const file = event.target.files[0];
-      if (!file || !currentTx) return;
-
-      const btnSend = document.getElementById('btnSend');
-      btnSend.disabled = true;
-      btnSend.innerText = 'Uploading...';
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `consultations/${fileName}`;
-
-      const { data, error } = await supabaseClient.storage
-        .from('chat-media')
-        .upload(filePath, file);
-
-      if (error) {
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-          const fileType = file.type.startsWith('video') ? 'video' : 'image';
-          saveMediaMsg(fileType, e.target.result);
-        };
-        reader.readAsDataURL(file);
+        if (role === 'client' && !isTimerRunning && currentRemaining > 0) {
+          document.getElementById('timer-container').style.display = 'block';
+          startSmartTimer();
+        }
       } else {
-        const { data: publicUrlData } = supabaseClient.storage
-          .from('chat-media')
-          .getPublicUrl(filePath);
+        document.getElementById('payment-lock').style.display = 'block';
+        
+        // Hitung nominal unik
+        const basePrice = Number(currentTransaction.amount) || 45000;
+        const uniqueCode = generateUniqueCode(currentTransaction.id);
+        calculatedExactPrice = basePrice + uniqueCode;
 
-        const fileType = file.type.startsWith('video') ? 'video' : 'image';
-        saveMediaMsg(fileType, publicUrlData.publicUrl);
+        document.getElementById('lock-price').innerText = `Rp${calculatedExactPrice.toLocaleString('id-ID')}`;
+        
+        const waText = encodeURIComponent(`Halo Admin TeleVET, saya ingin konfirmasi pembayaran konsultasi:\n- Klien: ${currentTransaction.client_name}\n- Layanan: ${currentTransaction.service}\n- Total Nominal Unik: Rp${calculatedExactPrice.toLocaleString('id-ID')}\n\nBerikut bukti transfernya. Terima kasih.`);
+        document.getElementById('wa-confirm-btn').href = `https://wa.me/6281215667746?text=${waText}`;
       }
-
-      btnSend.disabled = false;
-      btnSend.innerText = 'Kirim';
-      event.target.value = '';
     }
 
-    async function saveMediaMsg(type, url) {
-      let messages = [];
-      try {
-        messages = typeof currentTx.chat_history === 'string' ? JSON.parse(currentTx.chat_history) : (currentTx.chat_history || []);
-      } catch (e) { messages = []; }
+    function renderChat() {
+      const chatBox = document.getElementById('chat-box');
+      if (chatHistory.length === 0) {
+        chatBox.innerHTML = '<div style="text-align:center; color:#9ca3af; font-size:12px; margin-top:20px;">Belum ada percakapan. Silakan mulai berkonsultasi.</div>';
+        return;
+      }
 
-      messages.push({ role: userRole, type: type, url: url, time: new Date().toISOString() });
+      let doctorDisplayName = "Dokter Hewan";
+      if (currentTransaction && currentTransaction.service) {
+        const match = currentTransaction.service.match(/\((drh\.[^\)]+)\)/);
+        if (match) doctorDisplayName = match[1];
+      }
 
-      const { error } = await supabaseClient
+      let clientDisplayName = "Klien";
+      if (currentTransaction && currentTransaction.client_name) {
+        clientDisplayName = currentTransaction.client_name.split('(')[0].trim();
+      }
+
+      let html = '';
+      chatHistory.forEach(msg => {
+        let content = msg.text;
+        if (msg.type === 'image') {
+          content = `<img src="${msg.url}" alt="Lampiran Gambar">`;
+        } else if (msg.type === 'video') {
+          content = `<video controls src="${msg.url}"></video>`;
+        }
+
+        const senderLabel = msg.sender === 'doctor' ? doctorDisplayName : clientDisplayName;
+
+        html += `
+          <div class="message-wrapper ${msg.sender}">
+            <div class="sender-name">${senderLabel}</div>
+            <div class="message ${msg.sender}">${content}</div>
+          </div>
+        `;
+      });
+      chatBox.innerHTML = html;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function sendMessage(customText = null, customType = 'text', mediaUrl = null) {
+      if (role === 'admin') return;
+
+      const input = document.getElementById('messageInput');
+      const text = customText !== null ? customText : input.value.trim();
+      if (!text && !mediaUrl) return;
+
+      const senderType = role === 'doctor' ? 'doctor' : 'client';
+      
+      const newMsg = { 
+        sender: senderType, 
+        text: text, 
+        type: customType, 
+        url: mediaUrl, 
+        time: new Date().toISOString() 
+      };
+
+      chatHistory.push(newMsg);
+      renderChat();
+
+      if (customText === null) input.value = '';
+
+      await supabaseClient
         .from('transactions')
-        .update({ chat_history: JSON.stringify(messages) })
+        .update({ chat_history: JSON.stringify(chatHistory) })
         .eq('id', txId);
-
-      if (!error) {
-        currentTx.chat_history = JSON.stringify(messages);
-        renderChat(messages);
-      }
     }
 
-    function handleKey(e) {
-      if (e.key === 'Enter') sendMsg();
+    function handleKeyPress(e) { if (e.key === 'Enter') sendMessage(); }
+
+    function handleMediaUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Ukuran file terlalu besar! Maksimal 2MB.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(uploadEvent) {
+        const base64Data = uploadEvent.target.result;
+        const fileType = file.type.startsWith('video') ? 'video' : 'image';
+        sendMessage(file.name, fileType, base64Data);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function endConsultation() {
+      if (confirm("Apakah Anda yakin ingin mengakhiri sesi konsultasi ini?")) {
+        await supabaseClient
+          .from('transactions')
+          .update({ status: 'Completed', remaining_seconds: 0 })
+          .eq('id', txId);
+        
+        alert("Sesi konsultasi telah diakhiri.");
+        location.reload();
+      }
     }
 
     function copyText(str) {
@@ -304,27 +334,69 @@
       alert("Nomor rekening berhasil disalin!");
     }
 
-    function copyPayAmount() {
-      navigator.clipboard.writeText(exactAmount.toString());
-      alert(`Nominal Rp${exactAmount.toLocaleString('id-ID')} berhasil disalin!`);
+    function copyExactPrice() {
+      navigator.clipboard.writeText(calculatedExactPrice.toString());
+      alert(`Nominal transfer Rp${calculatedExactPrice.toLocaleString('id-ID')} berhasil disalin!`);
     }
 
-    function confirmWA() {
-      const msg = `Halo Admin TeleVET, saya ingin konfirmasi pembayaran konsultasi:\n- Nama/Klien: ${currentTx ? currentTx.client_name : ''}\n- Layanan: ${currentTx ? currentTx.service : ''}\n- Total Nominal Unik: Rp${exactAmount.toLocaleString('id-ID')}\n\nBerikut saya lampirkan bukti transfernya. Terima kasih.`;
-      window.open(`https://wa.me/6281215667746?text=${encodeURIComponent(msg)}`, '_blank');
+    function startSmartTimer() {
+      isTimerRunning = true;
+      updateTimerDisplay();
+
+      timerInterval = setInterval(() => {
+        if (currentRemaining > 0) {
+          currentRemaining--;
+          updateTimerDisplay();
+          if (currentRemaining % 10 === 0) {
+            saveRemainingTime(currentRemaining);
+          }
+        } else {
+          stopTimer();
+          endConsultation();
+        }
+      }, 1000);
     }
 
-    async function endSession() {
-      if (confirm("Apakah Anda yakin ingin mengakhiri sesi konsultasi ini?")) {
-        await supabaseClient.from('transactions').update({ status: 'Completed' }).eq('id', txId);
-        alert("Sesi telah diselesaikan!");
-        window.location.href = 'doctor.html';
+    function updateTimerDisplay() {
+      let minutes = parseInt(currentRemaining / 60, 10);
+      let seconds = parseInt(currentRemaining % 60, 10);
+      minutes = minutes < 10 ? "0" + minutes : minutes;
+      seconds = seconds < 10 ? "0" + seconds : seconds;
+      document.getElementById('timer').innerText = minutes + ":" + seconds;
+    }
+
+    function stopTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      isTimerRunning = false;
+    }
+
+    async function saveRemainingTime(seconds) {
+      if (role === 'client' && txId) {
+        await supabaseClient
+          .from('transactions')
+          .update({ remaining_seconds: seconds })
+          .eq('id', txId);
       }
     }
 
-    setInterval(loadTransaction, 3000);
-    loadTransaction();
+    window.addEventListener('beforeunload', () => {
+      if (role === 'client' && isTimerRunning) {
+        supabaseClient.from('transactions').update({ remaining_seconds: currentRemaining }).eq('id', txId);
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (role === 'client') {
+        if (document.hidden) {
+          stopTimer();
+          saveRemainingTime(currentRemaining);
+        } else if (currentRemaining > 0) {
+          startSmartTimer();
+        }
+      }
+    });
+
+    initConsultation();
   </script>
 </body>
 </html>
-  
