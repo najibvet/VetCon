@@ -12,9 +12,8 @@
     h2 { font-size: 16px; color: #0f766e; margin-bottom: 12px; font-weight: bold; }
     .back-link { display: inline-block; margin-bottom: 15px; font-size: 12px; color: #0f766e; text-decoration: none; font-weight: bold; }
     
-    /* Kartu Ringkasan Keuangan */
     .finance-summary { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 12px; margin-bottom: 24px; }
-    .finance-title { font-size: 14px; font-weight: bold; color: #166534; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .finance-title { font-size: 14px; font-weight: bold; color: #166534; margin-bottom: 10px; }
     .finance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 8px; }
     .finance-card { background: white; padding: 12px; border-radius: 8px; border: 1px solid #dcfce7; }
     .finance-card label { display: block; font-size: 11px; color: #4b5563; font-weight: bold; }
@@ -25,7 +24,8 @@
     .action-btns { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
     .action-btn { padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: bold; cursor: pointer; border: none; display: inline-block; }
     .btn-approve { background: #16a34a; color: white; }
-    .btn-wa { background: #25d366; color: white; }
+    .btn-wa-client { background: #25d366; color: white; }
+    .btn-wa-doctor { background: #0284c7; color: white; }
     .btn-chat { background: #0f766e; color: white; }
   </style>
 </head>
@@ -35,7 +35,6 @@
     <a href="index.html" class="back-link">&larr; Keluar ke Gerbang Utama</a>
     <h2>🔐 Panel Kontrol Admin & Keuangan</h2>
 
-    <!-- Section Ringkasan Keuangan -->
     <div class="finance-summary">
       <div class="finance-title">💰 Ringkasan Keuangan (Sesi Lunas)</div>
       <div class="finance-grid" id="finance-cards">
@@ -44,7 +43,6 @@
           <div class="val" id="platform-fee-total">Rp0</div>
           <div class="sub">Total pendapatan masuk</div>
         </div>
-        <!-- Card dokter dimasukkan via JavaScript secara dinamis -->
       </div>
     </div>
 
@@ -53,7 +51,6 @@
   </div>
 
   <script>
-    // Proteksi Keamanan Role Admin
     if (sessionStorage.getItem("vet_role") !== "admin") {
       alert("Akses ditolak! Silakan login sebagai Admin.");
       window.location.href = "index.html";
@@ -63,7 +60,9 @@
     const SUPABASE_KEY = 'sb_publishable_tH-AJIgmuCYlwAjwXUydiw_h_9k902H';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Fungsi Konfirmasi Pembayaran Lunas
+    // Nomor WhatsApp Dokter (bisa disesuaikan atau dibuat dinamis)
+    const DOCTOR_PHONE = "6281215667746"; // Contoh nomor dokter praktisi
+
     async function verifyPayment(id) {
       const { error } = await supabaseClient
         .from('transactions')
@@ -78,7 +77,6 @@
       }
     }
 
-    // Fungsi Memuat Seluruh Daftar Transaksi & Menghitung Laporan Keuangan
     async function loadTransactions() {
       const { data, error } = await supabaseClient
         .from('transactions')
@@ -93,48 +91,49 @@
       }
 
       let totalPlatformFee = 0;
-      let doctorEarnings = {}; // { "drh. Najib": 38250, "drh. Bintang": ... }
-
+      let doctorEarnings = {};
       let html = '';
+
       data.forEach(tx => {
         const amount = Number(tx.amount || 0);
 
-        // Hanya hitung akumulasi transaksi yang statusnya 'Paid'
         if (tx.status === 'Paid') {
           const pFee = tx.platform_fee ? Number(tx.platform_fee) : (amount * 0.15);
           const dPayout = tx.doctor_payout ? Number(tx.doctor_payout) : (amount * 0.85);
-
           totalPlatformFee += pFee;
 
-          // Ekstrak nama dokter dari string layanan (Contoh: "Konsultasi Pet (drh. Najib)")
           let doctorName = "Dokter Praktisi";
           if (tx.service.includes("drh.")) {
             const match = tx.service.match(/\((drh\.[^\)]+)\)/);
             if (match) doctorName = match[1];
           }
 
-          if (!doctorEarnings[doctorName]) {
-            doctorEarnings[doctorName] = 0;
-          }
+          if (!doctorEarnings[doctorName]) doctorEarnings[doctorName] = 0;
           doctorEarnings[doctorName] += dPayout;
         }
 
         const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
-        const chatLink = `${baseUrl}consultation.html?id=${tx.id}&role=client`;
-        
-        // Pesan WhatsApp Notifikasi Lunas & Link Chat 15 Menit
-        const waMessage = `Halo Kak ${tx.client_name},\n\nPembayaran untuk layanan ${tx.service} di VetBook telah dikonfirmasi LUNAS.\n\nSilakan klik tautan berikut untuk masuk ke ruang percakapan dengan Dokter Hewan pilihan Anda (waktu konsultasi aktif 15 menit dan akan berjalan saat tautan dibuka):\n${chatLink}`;
-        const waText = encodeURIComponent(waMessage);
-        const waLink = `https://wa.me/${tx.whatsapp}?text=${waText}`;
+        const clientChatLink = `${baseUrl}consultation.html?id=${tx.id}&role=client`;
+        const doctorChatLink = `${baseUrl}consultation.html?id=${tx.id}&role=doctor`;
+        const adminViewLink = `${baseUrl}consultation.html?id=${tx.id}&role=admin`;
+
+        // Pesan WA untuk Klien
+        const msgClient = `Halo Kak ${tx.client_name},\n\nPembayaran untuk layanan ${tx.service} di VetBook telah dikonfirmasi LUNAS.\n\nSilakan masuk ke ruang percakapan dengan Dokter Hewan melalui tautan berikut (waktu konsultasi aktif 15 menit): \n${clientChatLink}`;
+        const linkWaClient = `https://wa.me/${tx.whatsapp}?text=${encodeURIComponent(msgClient)}`;
+
+        // Pesan WA untuk Dokter Hewan
+        const msgDoctor = `Halo Dok, ada pesanan konsultasi baru yang sudah LUNAS di VetBook:\n\n- Pasien: ${tx.client_name}\n- Layanan: ${tx.service}\n- Biaya: Rp${amount.toLocaleString('id-ID')}\n\nSilakan akses ruang percakapan melalui tautan berikut:\n${doctorChatLink}`;
+        const linkWaDoctor = `https://wa.me/${DOCTOR_PHONE}?text=${encodeURIComponent(msgDoctor)}`;
 
         html += `
           <div class="transaction-item">
             <strong>${tx.client_name}</strong> (${tx.service})<br>
-            WA: <b>${tx.whatsapp}</b> | Biaya: <b>Rp${amount.toLocaleString('id-ID')}</b> | Status: <b style="color:${tx.status === 'Paid' ? 'green' : 'orange'}">${tx.status}</b><br>
+            WA Klien: <b>${tx.whatsapp}</b> | Biaya: <b>Rp${amount.toLocaleString('id-ID')}</b> | Status: <b style="color:${tx.status === 'Paid' ? 'green' : 'orange'}">${tx.status}</b><br>
             <div class="action-btns">
               ${tx.status === 'Pending' ? `<button onclick="verifyPayment('${tx.id}')" class="action-btn btn-approve">✅ Konfirmasi Lunas</button>` : ''}
-              <a href="${waLink}" target="_blank" class="action-btn btn-wa">💬 WA Notif Klien</a>
-              <a href="${chatLink}" target="_blank" class="action-btn btn-chat">🩺 Lihat Chat Klien</a>
+              <a href="${linkWaClient}" target="_blank" class="action-btn btn-wa-client">💬 WA Notif Klien</a>
+              <a href="${linkWaDoctor}" target="_blank" class="action-btn btn-wa-doctor">🩺 WA Notif Dokter</a>
+              <a href="${adminViewLink}" target="_blank" class="action-btn btn-chat">👁️ Lihat Chat (Read-Only)</a>
             </div>
           </div>
         `;
@@ -142,16 +141,12 @@
 
       listDiv.innerHTML = html;
 
-      // Render Ringkasan Keuangan
       document.getElementById('platform-fee-total').innerText = `Rp${totalPlatformFee.toLocaleString('id-ID')}`;
-
       const financeGrid = document.getElementById('finance-cards');
-      // Hapus kartu dokter lama jika ada (sisakan kartu komisi platform)
       const platformCard = financeGrid.firstElementChild;
       financeGrid.innerHTML = '';
       financeGrid.appendChild(platformCard);
 
-      // Tambahkan kartu per dokter secara dinamis
       for (const [docName, totalEarn] of Object.entries(doctorEarnings)) {
         const cardHtml = `
           <div class="finance-card">
