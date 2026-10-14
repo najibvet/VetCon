@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VetBook - Ruang Konsultasi Medis</title>
+  <title>VetBook - Ruang Konsultasi Klien</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -21,7 +21,7 @@
     input[type="text"] { flex: 1; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 20px; font-size: 13px; outline: none; }
     .btn-send { background: #0f766e; color: white; border: none; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; }
     
-    /* Lock Screen Pembayaran */
+    /* Layar Terkunci / Kadaluarsa */
     .lock-screen { text-align: center; padding: 30px 20px; background: white; margin: auto; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-width: 400px; width: 90%; }
     .lock-icon { font-size: 40px; margin-bottom: 8px; }
     .lock-title { font-size: 16px; font-weight: bold; color: #0f766e; margin-bottom: 6px; }
@@ -32,24 +32,29 @@
 <body>
 
   <header id="chat-header" style="display:none;">
-    <div id="room-title">Ruang Konsultasi VetBook</div>
-    <div id="timer-container" style="display:none;">Sisa Waktu: <span id="timer" class="timer-badge">20:00</span></div>
+    <div id="room-title">Konsultasi VetBook</div>
+    <div id="timer-container" style="display:none;">Waktu Tersisa: <span id="timer" class="timer-badge">15:00</span></div>
   </header>
 
-  <!-- Layar Terkunci Sebelum Pembayaran -->
-  <div id="payment-lock" class="lock-screen">
+  <!-- Layar Pembayaran Pending -->
+  <div id="payment-lock" class="lock-screen" style="display:none;">
     <div class="lock-icon">💳</div>
     <div class="lock-title">Selesaikan Pembayaran</div>
-    <p style="font-size:12px; color:#6b7280;">Sesi konsultasi Anda akan otomatis aktif setelah pembayaran dikonfirmasi.</p>
-
+    <p style="font-size:12px; color:#6b7280;">Sesi konsultasi dengan dokter pilihan Anda akan otomatis aktif setelah pembayaran dikonfirmasi.</p>
     <div class="bank-box">
       <strong>Transfer Bank Mandiri:</strong><br>
       No. Rek: <b>1440026211181</b><br>
       A/N: <b>VetBook Indonesia</b><br>
       Total: <b id="lock-price">Rp-</b>
     </div>
-
     <a id="wa-confirm-btn" href="#" target="_blank" class="btn-confirm-wa">📲 Konfirmasi Bukti Transfer via WA</a>
+  </div>
+
+  <!-- Layar Kedaluwarsa (Habis Waktu 15 Menit) -->
+  <div id="expired-lock" class="lock-screen" style="display:none;">
+    <div class="lock-icon">⌛</div>
+    <div class="lock-title" style="color:#991b1b;">Sesi Telah Berakhir</div>
+    <p style="font-size:13px; color:#4b5563;">Batas waktu konsultasi aktif selama 15 menit telah habis. Terima kasih telah menggunakan layanan VetBook.</p>
   </div>
 
   <!-- Area Chat -->
@@ -71,7 +76,9 @@
 
     let currentTransaction = null;
     let chatHistory = [];
-    let timerStarted = false;
+    let timerInterval = null;
+    let currentRemaining = 900; // 15 menit dalam detik
+    let isTimerRunning = false;
 
     async function initConsultation() {
       if (!txId) return;
@@ -85,32 +92,48 @@
       if (error || !data) return;
 
       currentTransaction = data;
-      document.getElementById('lock-price').innerText = `Rp${data.amount.toLocaleString('id-ID')}`;
+      currentRemaining = data.remaining_seconds !== null ? data.remaining_seconds : 900;
       
+      document.getElementById('lock-price').innerText = `Rp${data.amount.toLocaleString('id-ID')}`;
       const waText = encodeURIComponent(`Halo Admin VetBook, saya ingin konfirmasi pembayaran untuk booking ID: ${txId} atas nama ${data.client_name}`);
       document.getElementById('wa-confirm-btn').href = `https://wa.me/6281215667746?text=${waText}`;
 
       checkStatus();
 
-      // Realtime Listener jika Admin klik 'Konfirmasi Lunas'
+      // Realtime Listener
       supabaseClient
         .channel('public:transactions')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${txId}` }, payload => {
           currentTransaction = payload.new;
+          if (payload.new.remaining_seconds !== undefined && !isTimerRunning) {
+            currentRemaining = payload.new.remaining_seconds;
+          }
           checkStatus();
         })
         .subscribe();
     }
 
     function checkStatus() {
-      // Jika status Paid ATAU yang buka adalah Dokter -> Buka Akses
       if (currentTransaction.status === 'Paid' || role === 'doctor') {
         document.getElementById('payment-lock').style.display = 'none';
+
+        if (currentRemaining <= 0 && role === 'client') {
+          // Waktu Habis
+          document.getElementById('expired-lock').style.display = 'block';
+          document.getElementById('chat-header').style.display = 'none';
+          document.getElementById('chat-box').style.display = 'none';
+          document.getElementById('input-area').style.display = 'none';
+          stopTimer();
+          return;
+        }
+
         document.getElementById('chat-header').style.display = 'flex';
         document.getElementById('chat-box').style.display = 'flex';
-        document.getElementById('input-area').style.display = 'flex';
+        if (role === 'client' && currentRemaining > 0) {
+          document.getElementById('input-area').style.display = 'flex';
+        }
 
-        document.getElementById('room-title').innerText = `Konsultasi: ${currentTransaction.client_name}`;
+        document.getElementById('room-title').innerText = `Konsultasi: ${currentTransaction.client_name} (${currentTransaction.service})`;
 
         try {
           chatHistory = JSON.parse(currentTransaction.chat_history || '[]');
@@ -118,10 +141,10 @@
 
         renderChat();
 
-        if (role === 'client' && !timerStarted) {
+        // Jalankan timer khusus Klien (Pause otomatis saat halaman ditinggalkan)
+        if (role === 'client' && !isTimerRunning && currentRemaining > 0) {
           document.getElementById('timer-container').style.display = 'block';
-          startTimer(1200); // 20 Menit
-          timerStarted = true;
+          startSmartTimer();
         }
       } else {
         document.getElementById('payment-lock').style.display = 'block';
@@ -131,10 +154,9 @@
     function renderChat() {
       const chatBox = document.getElementById('chat-box');
       if (chatHistory.length === 0) {
-        chatBox.innerHTML = '<div style="text-align:center; color:#9ca3af; font-size:12px; margin-top:20px;">Silakan mulai bertanya mengenai keluhan hewan Anda.</div>';
+        chatBox.innerHTML = '<div style="text-align:center; color:#9ca3af; font-size:12px; margin-top:20px;">Silakan mulai berkonsultasi dengan Dokter Hewan.</div>';
         return;
       }
-
       let html = '';
       chatHistory.forEach(msg => {
         html += `<div class="message ${msg.sender}">${msg.text}</div>`;
@@ -144,6 +166,7 @@
     }
 
     async function sendMessage() {
+      if (currentRemaining <= 0 && role === 'client') return;
       const input = document.getElementById('messageInput');
       const text = input.value.trim();
       if (!text) return;
@@ -161,19 +184,67 @@
 
     function handleKeyPress(e) { if (e.key === 'Enter') sendMessage(); }
 
-    function startTimer(duration) {
-      let timer = duration;
-      setInterval(() => {
-        let minutes = parseInt(timer / 60, 10);
-        let seconds = parseInt(timer % 60, 10);
-        minutes = minutes < 10 ? "0" + minutes : minutes;
-        seconds = seconds < 10 ? "0" + seconds : seconds;
-        document.getElementById('timer').innerText = minutes + ":" + seconds;
-        if (--timer < 0) {
-          document.getElementById('input-area').style.display = 'none';
+    function startSmartTimer() {
+      isTimerRunning = true;
+      updateTimerDisplay();
+
+      timerInterval = setInterval(() => {
+        if (currentRemaining > 0) {
+          currentRemaining--;
+          updateTimerDisplay();
+
+          // Sinkronisasi berkala ke database tiap 10 detik agar akurat
+          if (currentRemaining % 10 === 0) {
+            saveRemainingTime(currentRemaining);
+          }
+        } else {
+          stopTimer();
+          saveRemainingTime(0);
+          checkStatus();
         }
       }, 1000);
     }
+
+    function updateTimerDisplay() {
+      let minutes = parseInt(currentRemaining / 60, 10);
+      let seconds = parseInt(currentRemaining % 60, 10);
+      minutes = minutes < 10 ? "0" + minutes : minutes;
+      seconds = seconds < 10 ? "0" + seconds : seconds;
+      document.getElementById('timer').innerText = minutes + ":" + seconds;
+    }
+
+    function stopTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      isTimerRunning = false;
+    }
+
+    async function saveRemainingTime(seconds) {
+      if (role === 'client' && txId) {
+        await supabaseClient
+          .from('transactions')
+          .update({ remaining_seconds: seconds })
+          .eq('id', txId);
+      }
+    }
+
+    // Jika klien menutup tab atau berpindah halaman, simpan sisa waktu seketika (Pause)
+    window.addEventListener('beforeunload', () => {
+      if (role === 'client' && isTimerRunning) {
+        // Menggunakan sendBeacon atau sync update
+        supabaseClient.from('transactions').update({ remaining_seconds: currentRemaining }).eq('id', txId);
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (role === 'client') {
+        if (document.hidden) {
+          stopTimer();
+          saveRemainingTime(currentRemaining); // Pause saat tab tidak aktif
+        } else if (currentRemaining > 0) {
+          startSmartTimer(); // Resume saat tab dibuka kembali
+        }
+      }
+    });
 
     initConsultation();
   </script>
