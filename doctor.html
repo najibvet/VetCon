@@ -3,67 +3,226 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VetBook - Dasbor Dokter</title>
+  <title>VetBook - Dasbor Dokter Praktisi</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: #f3f4f6; color: #1f2937; padding: 20px; display: flex; justify-content: center; }
-    .container { width: 100%; max-width: 600px; background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    h2 { font-size: 16px; color: #0f766e; margin-bottom: 16px; font-weight: bold; }
-    .back-link { display: inline-block; margin-bottom: 15px; font-size: 12px; color: #0f766e; text-decoration: none; font-weight: bold; }
+    body { background-color: #f3f4f6; color: #1f2937; padding: 16px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 650px; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
     
-    .patient-card { background: #f9fafb; border: 1px solid #e5e7eb; padding: 14px; border-radius: 10px; margin-bottom: 12px; font-size: 13px; }
-    .btn-enter-room { display: block; background: #0f766e; color: white; text-align: center; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 12px; margin-top: 10px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
+    h2 { font-size: 16px; color: #0f766e; font-weight: bold; }
+    .back-link { font-size: 12px; color: #0f766e; text-decoration: none; font-weight: bold; }
+    
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .card { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 10px; }
+    .card label { font-size: 10px; color: #166534; font-weight: bold; display: block; }
+    .card .val { font-size: 14px; font-weight: bold; color: #0f766e; margin-top: 4px; }
+
+    .withdraw-box { background: #f9fafb; border: 1px solid #e5e7eb; padding: 14px; border-radius: 10px; margin-bottom: 20px; }
+    .withdraw-box h3 { font-size: 13px; color: #374151; margin-bottom: 10px; }
+    input[type="number"], input[type="text"] { width: 100%; padding: 8px 12px; margin-bottom: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; }
+    .btn-submit { width: 100%; background: #0f766e; color: white; border: none; padding: 9px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; }
+
+    .section-title { font-size: 13px; font-weight: bold; color: #111827; margin: 16px 0 8px 0; border-left: 3px solid #0f766e; padding-left: 8px; }
+    
+    .item-list { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; }
+    .item { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
+    .item:last-child { border-bottom: none; }
+    .badge { padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-paid { background: #e0f2fe; color: #0369a1; }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <a href="index.html" class="back-link">&larr; Keluar ke Gerbang Utama</a>
-    <h2>🩺 Antrean Konsultasi Dokter Praktisi</h2>
-    <div id="patient-list">Memuat antrean...</div>
+    <header>
+      <div>
+        <h2 id="doc-title">Dasbor Dokter</h2>
+        <span style="font-size: 11px; color: #6b7280;">Portal Praktisi & Keuangan</span>
+      </div>
+      <a href="index.html" class="back-link">&larr; Keluar</a>
+    </header>
+
+    <!-- Ringkasan Keuangan Dokter -->
+    <div class="card-grid">
+      <div class="card">
+        <label>Total Hak Komisi (85%)</label>
+        <div class="val" id="total-earn">Rp0</div>
+      </div>
+      <div class="card">
+        <label>Telah Dicarikan</label>
+        <div class="val" id="total-withdrawn">Rp0</div>
+      </div>
+      <div class="card" style="background:#e0f2fe; border-color:#bae6fd;">
+        <label style="color:#0369a1;">Sisa Saldo Ditarik</label>
+        <div class="val" id="remaining-balance" style="color:#0284c7;">Rp0</div>
+      </div>
+    </div>
+
+    <!-- Form Pengajuan Penarikan -->
+    <div class="withdraw-box">
+      <h3>💸 Pengajuan Penarikan Dana Fee</h3>
+      <input type="number" id="withdraw-amount" placeholder="Nominal yang ingin ditarik (Rp)">
+      <input type="text" id="withdraw-bank" placeholder="Info Rekening (Misal: Mandiri 123456 a/n drh Najib)">
+      <button class="btn-submit" onclick="requestWithdrawal()">Kirim Pengajuan Penarikan</button>
+    </div>
+
+    <!-- Riwayat Pencairan -->
+    <div class="section-title">📜 Riwayat Pengajuan Penarikan</div>
+    <div class="item-list" id="withdrawal-history">Memuat riwayat...</div>
+
+    <!-- Riwayat Pasien / Klien -->
+    <div class="section-title">🐾 Riwayat Pasien / Konsultasi Klien</div>
+    <div class="item-list" id="patient-history">Memuat data pasien...</div>
   </div>
 
   <script>
-    // Proteksi Keamanan Role Dokter
-    const currentRole = sessionStorage.getItem("vet_role");
-    if (currentRole !== "doctor" && currentRole !== "admin") {
-      alert("Akses ditolak! Silakan login sebagai Dokter.");
+    if (sessionStorage.getItem("vet_role") !== "doctor") {
+      alert("Akses ditolak! Silakan login terlebih dahulu.");
       window.location.href = "index.html";
     }
+
+    const doctorName = sessionStorage.getItem("doctor_name") || "drh. Najib";
+    document.getElementById('doc-title').innerText = `Dasbor ${doctorName}`;
 
     const SUPABASE_URL = 'https://tdoostchqlatiwzuxcmo.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_tH-AJIgmuCYlwAjwXUydiw_h_9k902H';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    async function loadDoctorQueue() {
-      const { data, error } = await supabaseClient
+    let maxWithdrawable = 0;
+
+    async function loadDoctorData() {
+      // 1. Hitung total bagian dokter dari transaksi Paid/Completed
+      const { data: txs } = await supabaseClient
         .from('transactions')
         .select('*')
         .order('created_at', { ascending: false });
 
-      const listDiv = document.getElementById('patient-list');
-      if (error || !data || data.length === 0) {
-        listDiv.innerHTML = '<p style="font-size:12px; color:#6b7280;">Belum ada antrean.</p>';
+      let totalEarn = 0;
+      let patientHtml = '';
+
+      if (txs) {
+        txs.forEach(tx => {
+          // Filter hanya transaksi milik dokter yang sedang login
+          if (tx.service && tx.service.includes(doctorName)) {
+            const amount = Number(tx.amount || 0);
+            
+            if (tx.status === 'Paid' || tx.status === 'Completed') {
+              const dPayout = tx.doctor_payout ? Number(tx.doctor_payout) : (amount * 0.85);
+              totalEarn += dPayout;
+            }
+
+            const dateStr = new Date(tx.created_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' });
+            let statusBadge = '<span class="badge badge-paid">Konfirmasi (Belum Sesi)</span>';
+            if (tx.status === 'Completed') {
+              statusBadge = '<span class="badge badge-success">Selesai</span>';
+            } else if (tx.status === 'Pending') {
+              statusBadge = '<span class="badge badge-pending">Menunggu Bayar</span>';
+            }
+
+            patientHtml += `
+              <div class="item">
+                <div>
+                  <strong>${tx.client_name}</strong><br>
+                  <span style="font-size:10px; color:#6b7280;">${tx.service} | ${dateStr}</span>
+                </div>
+                <div>${statusBadge}</div>
+              </div>
+            `;
+          }
+        });
+      }
+
+      document.getElementById('patient-history').innerHTML = patientHtml || '<p style="padding:10px; color:#9ca3af;">Belum ada riwayat pasien.</p>';
+
+      // 2. Hitung riwayat penarikan (Success & Pending)
+      const { data: wds } = await supabaseClient
+        .from('withdrawals')
+        .select('*')
+        .eq('doctor_name', doctorName)
+        .order('created_at', { ascending: false });
+
+      let totalSuccessWithdrawn = 0;
+      let totalPendingWithdrawn = 0;
+      let wdHtml = '';
+
+      if (wds) {
+        wds.forEach(w => {
+          const amt = Number(w.amount || 0);
+          if (w.status === 'Success') {
+            totalSuccessWithdrawn += amt;
+          } else if (w.status === 'Pending') {
+            totalPendingWithdrawn += amt;
+          }
+
+          const badgeClass = w.status === 'Success' ? 'badge-success' : 'badge-pending';
+          wdHtml += `
+            <div class="item">
+              <div>
+                <strong>Rp${amt.toLocaleString('id-ID')}</strong><br>
+                <span style="font-size:10px; color:#6b7280;">Rek: ${w.bank_info}</span>
+              </div>
+              <div><span class="badge ${badgeClass}">${w.status}</span></div>
+            </div>
+          `;
+        });
+      }
+
+      document.getElementById('withdrawal-history').innerHTML = wdHtml || '<p style="padding:10px; color:#9ca3af;">Belum ada penarikan.</p>';
+
+      // Saldo Sisa Ditarik = Total Hak Komisi - (Penarikan Success + Pending)
+      maxWithdrawable = totalEarn - (totalSuccessWithdrawn + totalPendingWithdrawn);
+
+      document.getElementById('total-earn').innerText = `Rp${totalEarn.toLocaleString('id-ID')}`;
+      document.getElementById('total-withdrawn').innerText = `Rp${totalSuccessWithdrawn.toLocaleString('id-ID')}`;
+      document.getElementById('remaining-balance').innerText = `Rp${Math.max(0, maxWithdrawable).toLocaleString('id-ID')}`;
+    }
+
+    async function requestWithdrawal() {
+      const amountInput = document.getElementById('withdraw-amount');
+      const bankInput = document.getElementById('withdraw-bank');
+      
+      const reqAmount = Number(amountInput.value);
+      const bankInfo = bankInput.value.trim();
+
+      if (!reqAmount || reqAmount <= 0) {
+        alert("Masukkan nominal penarikan yang valid!");
         return;
       }
 
-      let html = '';
-      data.forEach(tx => {
-        const chatLink = `consultation.html?id=${tx.id}&role=doctor`;
-        html += `
-          <div class="patient-card">
-            <strong>Pasien / Klien: ${tx.client_name}</strong><br>
-            Layanan: ${tx.service}<br>
-            Status Pembayaran: <b style="color:${tx.status === 'Paid' ? 'green' : 'orange'}">${tx.status}</b>
-            <a href="${chatLink}" target="_blank" class="btn-enter-room">Masuk Ruang Chat Dokter &rarr;</a>
-          </div>
-        `;
-      });
-      listDiv.innerHTML = html;
+      if (!bankInfo) {
+        alert("Masukkan info nomor rekening tujuan!");
+        return;
+      }
+
+      if (reqAmount > maxWithdrawable) {
+        alert(`Saldo tidak cukup! Sisa saldo yang bisa ditarik maksimal Rp${maxWithdrawable.toLocaleString('id-ID')}`);
+        return;
+      }
+
+      const { error } = await supabaseClient
+        .from('withdrawals')
+        .insert([{
+          doctor_name: doctorName,
+          amount: reqAmount,
+          bank_info: bankInfo,
+          status: 'Pending'
+        }]);
+
+      if (!error) {
+        alert("Pengajuan penarikan dana berhasil dikirim! Menunggu konfirmasi Admin.");
+        amountInput.value = '';
+        bankInput.value = '';
+        loadDoctorData();
+      } else {
+        alert("Gagal mengirim pengajuan: " + error.message);
+      }
     }
 
-    loadDoctorQueue();
+    loadDoctorData();
   </script>
 </body>
 </html>
