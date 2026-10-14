@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VetBook - Booking Konsultasi</title>
+  <title>TeleVET - Booking Konsultasi</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -13,11 +13,23 @@
     .form-group { margin-bottom: 12px; }
     label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #374151; }
     input, select, textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; }
+    input:focus, select:focus { border-color: #0f766e; }
+    
     .btn { background: #0f766e; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 10px; }
     .btn:hover { background: #115e59; }
     .back-link { display: inline-block; margin-bottom: 15px; font-size: 12px; color: #0f766e; text-decoration: none; font-weight: bold; }
     
     .price-badge { background: #f0fdf4; color: #166534; padding: 8px; border-radius: 8px; font-weight: bold; text-align: center; margin-top: 6px; font-size: 14px; border: 1px solid #bbf7d0; }
+    
+    /* Kartu Profil Dokter */
+    .doctor-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+    .doc-card { background: #f0fdfa; border: 1.5px solid #ccfbf1; padding: 10px 12px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s; }
+    .doc-card.selected { border-color: #0f766e; background: #e6fffa; box-shadow: 0 2px 6px rgba(15, 118, 110, 0.12); }
+    .doc-info b { font-size: 12px; color: #0f766e; }
+    .doc-info p { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .status-badge { font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 8px; }
+    .status-online { background: #dcfce7; color: #15803d; }
+    .status-offline { background: #fee2e2; color: #b91c1c; }
   </style>
 </head>
 <body>
@@ -25,6 +37,14 @@
   <div class="container">
     <a href="index.html" class="back-link">&larr; Kembali ke Gerbang Utama</a>
     <h2>🐾 Form Konsultasi Medis Hewan</h2>
+
+    <!-- Kartu Status Profil Dokter -->
+    <div class="form-group">
+      <label>Profil Dokter Praktisi:</label>
+      <div id="doctor-cards-container" class="doctor-cards">
+        <div style="font-size:11px; color:#9ca3af; text-align:center;">Memuat profil dokter...</div>
+      </div>
+    </div>
 
     <div class="form-group">
       <label>Nama Pemilik / Klien</label>
@@ -43,15 +63,15 @@
 
     <div class="form-group">
       <label>Pilih Layanan Dokter</label>
-      <select id="serviceType" onchange="updatePrice()">
+      <select id="serviceType" onchange="onServiceChange()">
         <option value="Konsultasi Pet/Poultry (drh. Najib)" data-price="45000">Konsultasi Pet/Poultry (drh. Najib) - Rp45.000</option>
-        <option value="Konsultasi Ternak (drh. Bintang)" data-price="45000">Konsultasi Ternak (drh. Bintang) - Rp45.000</option>
+        <option value="Konsultasi Pet/Poultry (drh. Bintang)" data-price="45000">Konsultasi Pet/Poultry (drh. Bintang) - Rp45.000</option>
       </select>
     </div>
 
     <div class="price-badge" id="priceDisplay">Total Biaya: Rp45.000</div>
 
-    <button class="btn" onclick="submitBooking()">Lanjut ke Pembayaran &rarr;</button>
+    <button class="btn" id="btnSubmit" onclick="submitBooking()">Lanjut ke Pembayaran &rarr;</button>
   </div>
 
   <script>
@@ -60,6 +80,57 @@
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let selectedPrice = 45000;
+    let doctorsData = [];
+
+    async function loadDoctorProfiles() {
+      const { data } = await supabaseClient.from('doctor_status').select('*');
+      if (data) {
+        doctorsData = data;
+        renderDoctorCards();
+      }
+    }
+
+    function renderDoctorCards() {
+      const select = document.getElementById('serviceType');
+      const currentService = select.value;
+      const container = document.getElementById('doctor-cards-container');
+
+      if (!doctorsData || doctorsData.length === 0) return;
+
+      let html = '';
+      doctorsData.forEach(doc => {
+        const isSelected = currentService.includes(doc.doctor_name);
+        const statusClass = doc.is_active ? 'status-online' : 'status-offline';
+        const statusText = doc.is_active ? '● Aktif' : '○ Off';
+
+        html += `
+          <div class="doc-card ${isSelected ? 'selected' : ''}" onclick="selectDoctorFromCard('${doc.doctor_name}')">
+            <div class="doc-info">
+              <b>🩺 ${doc.doctor_name}</b>
+              <p>📍 ${doc.location}</p>
+            </div>
+            <span class="status-badge ${statusClass}">${statusText}</span>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function selectDoctorFromCard(docName) {
+      const select = document.getElementById('serviceType');
+      for (let i = 0; i < select.options.length; i++) {
+        if (select.options[i].value.includes(docName)) {
+          select.selectedIndex = i;
+          break;
+        }
+      }
+      onServiceChange();
+    }
+
+    function onServiceChange() {
+      updatePrice();
+      renderDoctorCards();
+    }
 
     function updatePrice() {
       const select = document.getElementById('serviceType');
@@ -77,6 +148,17 @@
         alert("Mohon lengkapi semua formulir pendaftaran.");
         return;
       }
+
+      // Cek apakah dokter yang dipilih sedang Off
+      const selectedDocObj = doctorsData.find(d => service.includes(d.doctor_name));
+      if (selectedDocObj && !selectedDocObj.is_active) {
+        const proceed = confirm(`${selectedDocObj.doctor_name} saat ini sedang Off/Istirahat. Apakah Anda tetap ingin melanjutkan booking?`);
+        if (!proceed) return;
+      }
+
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true;
+      btn.innerText = "Memproses...";
 
       const platformFee = selectedPrice * 0.15;
       const doctorPayout = selectedPrice * 0.85;
@@ -96,11 +178,14 @@
 
       if (error) {
         alert("Gagal membuat pemesanan: " + error.message);
+        btn.disabled = false;
+        btn.innerText = "Lanjut ke Pembayaran \u2192";
       } else {
-        // Langsung arahkan Klien ke Ruang Chat (Kondisi Terkunci Pembayaran)
         window.location.href = `consultation.html?id=${data.id}&role=client`;
       }
     }
+
+    loadDoctorProfiles();
   </script>
 </body>
 </html>
