@@ -15,10 +15,18 @@
     .btn-end { background: #991b1b; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
     .btn-end:hover { background: #7f1d1d; }
     
-    .chat-container { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #f9fafb; }
-    .message { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.4; word-wrap: break-word; }
-    .message.client { background: #e0f2fe; color: #0369a1; align-self: flex-start; border-bottom-left-radius: 2px; }
-    .message.doctor { background: #f0fdf4; color: #166534; align-self: flex-end; border-bottom-right-radius: 2px; }
+    .chat-container { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #f9fafb; }
+    
+    /* Wrapper Pesan & Label Nama */
+    .message-wrapper { display: flex; flex-direction: column; max-width: 75%; }
+    .message-wrapper.client { align-self: flex-start; }
+    .message-wrapper.doctor { align-self: flex-end; align-items: flex-end; }
+    
+    .sender-name { font-size: 11px; font-weight: bold; color: #4b5563; margin-bottom: 2px; padding: 0 4px; }
+    
+    .message { padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.4; word-wrap: break-word; }
+    .message.client { background: #e0f2fe; color: #0369a1; border-bottom-left-radius: 2px; }
+    .message.doctor { background: #f0fdf4; color: #166534; border-bottom-right-radius: 2px; }
     .message img, .message video { max-width: 100%; border-radius: 8px; margin-top: 6px; display: block; }
     
     .chat-footer { padding: 12px; background: white; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; align-items: center; }
@@ -93,7 +101,6 @@
 
       await fetchLatestData();
 
-      // Realtime Websocket Supabase
       supabaseClient
         .channel('public:transactions-' + txId)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${txId}` }, payload => {
@@ -101,7 +108,6 @@
         })
         .subscribe();
 
-      // Lapisan Pengaman Realtime: Polling data database setiap 3 detik agar penerima PASTI langsung tahu pesan masuk
       pollInterval = setInterval(fetchLatestData, 3000);
     }
 
@@ -180,6 +186,20 @@
         chatBox.innerHTML = '<div style="text-align:center; color:#9ca3af; font-size:12px; margin-top:20px;">Belum ada percakapan. Silakan mulai berkonsultasi.</div>';
         return;
       }
+
+      // Ambil nama dokter dari layanan (misal: "Konsultasi (drh. Najib)")
+      let doctorDisplayName = "Dokter Hewan";
+      if (currentTransaction && currentTransaction.service) {
+        const match = currentTransaction.service.match(/\((drh\.[^\)]+)\)/);
+        if (match) doctorDisplayName = match[1];
+      }
+
+      // Ambil nama klien dari data transaksi (misal: "Budi (Kucing Cimy)" -> diambil "Budi")
+      let clientDisplayName = "Klien";
+      if (currentTransaction && currentTransaction.client_name) {
+        clientDisplayName = currentTransaction.client_name.split('(')[0].trim();
+      }
+
       let html = '';
       chatHistory.forEach(msg => {
         let content = msg.text;
@@ -188,7 +208,15 @@
         } else if (msg.type === 'video') {
           content = `<video controls src="${msg.url}"></video>`;
         }
-        html += `<div class="message ${msg.sender}">${content}</div>`;
+
+        const senderLabel = msg.sender === 'doctor' ? doctorDisplayName : clientDisplayName;
+
+        html += `
+          <div class="message-wrapper ${msg.sender}">
+            <div class="sender-name">${senderLabel}</div>
+            <div class="message ${msg.sender}">${content}</div>
+          </div>
+        `;
       });
       chatBox.innerHTML = html;
       chatBox.scrollTop = chatBox.scrollHeight;
@@ -242,7 +270,6 @@
       reader.readAsDataURL(file);
     }
 
-    // Fungsi untuk Mengakhiri Konsultasi Kapan Saja
     async function endConsultation() {
       if (confirm("Apakah Anda yakin ingin mengakhiri sesi konsultasi ini?")) {
         await supabaseClient
