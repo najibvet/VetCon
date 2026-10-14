@@ -43,7 +43,7 @@
     <div class="pay-card">
       <div style="font-size:32px; margin-bottom:6px;">💳</div>
       <h3>Selesaikan Pembayaran</h3>
-      <p style="font-size:11px; color:#6b7280;">Transfer sesuai **nominal unik** di bawah ini agar verifikasi berjalan cepat:</p>
+      <p style="font-size:11px; color:#6b7280;">Transfer sesuai <b>nominal unik</b> di bawah ini agar verifikasi berjalan cepat:</p>
 
       <div class="pay-box">
         <div class="pay-row">
@@ -102,10 +102,20 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const txId = urlParams.get('id');
-    const userRole = urlParams.get('role') || 'client'; // client atau doctor
+    const userRole = urlParams.get('role') || 'client';
 
     let currentTx = null;
     let exactAmount = 45000;
+
+    // Menghasilkan 3 digit angka unik acak konsisten dari string ID transaksi
+    function generateUniqueCode(str) {
+      if (!str) return Math.floor(Math.random() * 899) + 100;
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return (Math.abs(hash) % 899) + 100;
+    }
 
     async function loadTransaction() {
       if (!txId) return;
@@ -119,19 +129,18 @@
       if (data) {
         currentTx = data;
         
-        // Buat Kode Unik Berdasarkan ID Transaksi (Misal: 45000 + 123)
-        const uniqueCode = Number(data.id) % 900 + 100; // Hasilkan 3 digit angka unik
-        exactAmount = Number(data.amount) + uniqueCode;
+        const baseAmount = Number(data.amount) || 45000;
+        const uniqueCode = generateUniqueCode(data.id);
+        exactAmount = baseAmount + uniqueCode;
 
         document.getElementById('payAmount').innerText = `Rp${exactAmount.toLocaleString('id-ID')}`;
-        document.getElementById('chatTitle').innerText = data.service;
-        document.getElementById('chatSub').innerText = `Klien: ${data.client_name}`;
+        document.getElementById('chatTitle').innerText = data.service || 'Ruang Konsultasi';
+        document.getElementById('chatSub').innerText = `Klien: ${data.client_name || 'Klien'}`;
 
         if (userRole === 'doctor') {
           document.getElementById('btnEndSession').style.display = 'block';
         }
 
-        // Jika status masih Pending & pengakses adalah Klien -> Tampilkan Modal Pembayaran
         if (data.status === 'Pending' && userRole === 'client') {
           document.getElementById('payModal').style.display = 'flex';
         } else {
@@ -200,7 +209,7 @@
     }
 
     function confirmWA() {
-      const msg = `Halo Admin TeleVET, saya ingin konfirmasi pembayaran konsultasi:\n- Nama/Klien: ${currentTx.client_name}\n- Layanan: ${currentTx.service}\n- Total Nominal Unik: Rp${exactAmount.toLocaleString('id-ID')}\n\nBerikut saya lampirkan bukti transfernya. Terima kasih.`;
+      const msg = `Halo Admin TeleVET, saya ingin konfirmasi pembayaran konsultasi:\n- Nama/Klien: ${currentTx ? currentTx.client_name : ''}\n- Layanan: ${currentTx ? currentTx.service : ''}\n- Total Nominal Unik: Rp${exactAmount.toLocaleString('id-ID')}\n\nBerikut saya lampirkan bukti transfernya. Terima kasih.`;
       window.open(`https://wa.me/628123456789?text=${encodeURIComponent(msg)}`, '_blank');
     }
 
@@ -212,7 +221,6 @@
       }
     }
 
-    // Refresh realtime setiap 3 detik
     setInterval(loadTransaction, 3000);
     loadTransaction();
   </script>
