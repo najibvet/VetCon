@@ -35,18 +35,11 @@
     .btn-send { background: #0f766e; color: white; border: none; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; }
     .btn-attach { background: #f3f4f6; border: 1px solid #d1d5db; padding: 10px 12px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
     
-    /* Tampilan Lock Screen / Modal Virtual Account Pembayaran */
-    .lock-screen { text-align: center; padding: 24px 20px; background: white; margin: auto; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-width: 400px; width: 90%; }
-    .lock-icon { font-size: 36px; margin-bottom: 6px; }
+    .lock-screen { text-align: center; padding: 30px 20px; background: white; margin: auto; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-width: 400px; width: 90%; }
+    .lock-icon { font-size: 40px; margin-bottom: 8px; }
     .lock-title { font-size: 16px; font-weight: bold; color: #0f766e; margin-bottom: 6px; }
-    
-    .bank-box { background: #f0fdf4; border: 1.5px dashed #166534; padding: 14px; border-radius: 12px; margin: 12px 0; font-size: 12px; text-align: left; }
-    .pay-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .pay-row:last-child { margin-bottom: 0; }
-    .copy-btn { background: #0f766e; color: white; border: none; padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: bold; margin-left: 6px; }
-    .copy-btn:active { background: #115e59; }
-    
-    .btn-confirm-wa { display: block; width: 100%; background: #22c55e; color: white; text-decoration: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 13px; margin-top: 10px; }
+    .bank-box { background: #f0fdfa; border: 1px dashed #0f766e; padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 13px; text-align: left; }
+    .btn-confirm-wa { display: block; width: 100%; background: #25d366; color: white; text-decoration: none; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 13px; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -59,39 +52,16 @@
     </div>
   </header>
 
-  <!-- Lock Screen Pembayaran Virtual Account -->
   <div id="payment-lock" class="lock-screen" style="display:none;">
     <div class="lock-icon">💳</div>
     <div class="lock-title">Selesaikan Pembayaran</div>
-    <p style="font-size:11px; color:#6b7280;">Transfer sesuai <b>nominal unik</b> di bawah ini agar verifikasi pembayaran dapat diproses dengan cepat:</p>
-    
+    <p style="font-size:12px; color:#6b7280;">Sesi konsultasi dengan dokter pilihan Anda akan otomatis aktif setelah pembayaran dikonfirmasi.</p>
     <div class="bank-box">
-      <div class="pay-row">
-        <span>Bank Tujuan:</span>
-        <strong>Bank BCA</strong>
-      </div>
-      <div class="pay-row">
-        <span>No. Rekening / VA:</span>
-        <div>
-          <strong>0300664695</strong>
-          <button class="copy-btn" onclick="copyText('0300664695')">Salin</button>
-        </div>
-      </div>
-      <div class="pay-row">
-        <span>Atas Nama:</span>
-        <strong>Nur Rohman Najib</strong>
-      </div>
-      <hr style="margin:8px 0; border:0; border-top:1px dashed #bbf7d0;">
-      <div class="pay-row">
-        <span>Total Transfer:</span>
-        <div>
-          <strong id="lock-price" style="color:#15803d; font-size:14px;">Rp-</strong>
-          <button class="copy-btn" onclick="copyExactPrice()">Salin</button>
-        </div>
-      </div>
-      <p style="font-size:9.5px; color:#15803d; margin-top:4px;">*Sudah termasuk kode unik transaksi.</p>
+      <strong>Transfer Bank BCA:</strong><br>
+      No. Rek: <b>0300664695</b><br>
+      A/N: <b>Nur Rohman Najib</b><br>
+      Total: <b id="lock-price">Rp-</b>
     </div>
-
     <a id="wa-confirm-btn" href="#" target="_blank" class="btn-confirm-wa">📲 Konfirmasi Bukti Transfer via WA</a>
   </div>
 
@@ -126,17 +96,6 @@
     let pollInterval = null;
     let currentRemaining = 900;
     let isTimerRunning = false;
-    let calculatedExactPrice = 45000;
-
-    // Menghasilkan 3 digit angka kode unik konsisten dari ID transaksi (mencegah error NaN pada UUID)
-    function generateUniqueCode(str) {
-      if (!str) return Math.floor(Math.random() * 899) + 100;
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      return (Math.abs(hash) % 899) + 100;
-    }
 
     async function initConsultation() {
       if (!txId) return;
@@ -216,15 +175,8 @@
         }
       } else {
         document.getElementById('payment-lock').style.display = 'block';
-        
-        // Hitung nominal unik
-        const basePrice = Number(currentTransaction.amount) || 45000;
-        const uniqueCode = generateUniqueCode(currentTransaction.id);
-        calculatedExactPrice = basePrice + uniqueCode;
-
-        document.getElementById('lock-price').innerText = `Rp${calculatedExactPrice.toLocaleString('id-ID')}`;
-        
-        const waText = encodeURIComponent(`Halo Admin TeleVET, saya ingin konfirmasi pembayaran konsultasi:\n- Klien: ${currentTransaction.client_name}\n- Layanan: ${currentTransaction.service}\n- Total Nominal Unik: Rp${calculatedExactPrice.toLocaleString('id-ID')}\n\nBerikut bukti transfernya. Terima kasih.`);
+        document.getElementById('lock-price').innerText = `Rp${currentTransaction.amount.toLocaleString('id-ID')}`;
+        const waText = encodeURIComponent(`Halo Admin TeleVET, saya ingin konfirmasi pembayaran untuk booking ID: ${txId} atas nama ${currentTransaction.client_name}`);
         document.getElementById('wa-confirm-btn').href = `https://wa.me/6281215667746?text=${waText}`;
       }
     }
@@ -329,16 +281,6 @@
       }
     }
 
-    function copyText(str) {
-      navigator.clipboard.writeText(str);
-      alert("Nomor rekening berhasil disalin!");
-    }
-
-    function copyExactPrice() {
-      navigator.clipboard.writeText(calculatedExactPrice.toString());
-      alert(`Nominal transfer Rp${calculatedExactPrice.toLocaleString('id-ID')} berhasil disalin!`);
-    }
-
     function startSmartTimer() {
       isTimerRunning = true;
       updateTimerDisplay();
@@ -399,4 +341,4 @@
     initConsultation();
   </script>
 </body>
-</html>
+  </html>
