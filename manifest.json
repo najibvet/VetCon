@@ -1,19 +1,14 @@
 {
-  "name": "TeleVET - Layanan Telemedis Hewan",
+  "name": "TeleVET - Layanan Telekonsultasi Medis Hewan",
   "short_name": "TeleVET",
-  "start_url": "/VetCon/index.html",
+  "start_url": "https://www.televet.web.id/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0f766e",
   "icons": [
     {
       "src": "TeleVet256.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "TeleVet256.png",
-      "sizes": "512x512",
+      "sizes": "256x256",
       "type": "image/png"
     }
   ]
