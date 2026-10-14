@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TeleVET- Ruang Konsultasi Medis</title>
+  <title>TeleVET - Ruang Konsultasi Medis</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: #f3f4f6; color: #1f2937; display: flex; flex-direction: column; height: 100vh; }
     
-    header { background: #0f766e; color: white; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
-    .timer-badge { background: #ef4444; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px; }
-    .btn-end { background: #991b1b; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
+    header { background: #0f766e; color: white; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; gap: 8px; flex-shrink: 0; }
+    #room-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+    .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .timer-badge { background: #ef4444; color: white; padding: 3px 6px; border-radius: 6px; font-size: 11px; }
+    .btn-end { background: #991b1b; color: white; border: none; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; }
     .btn-end:hover { background: #7f1d1d; }
     
     .chat-container { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #f9fafb; }
@@ -44,10 +45,10 @@
 <body>
 
   <header id="chat-header" style="display:none;">
-    <div id="room-title">Konsultasi TeleVet/div>
+    <div id="room-title">Konsultasi TeleVET</div>
     <div class="header-right">
-      <div id="timer-container" style="display:none;">Waktu: <span id="timer" class="timer-badge">15:00</span></div>
-      <button class="btn-end" onclick="endConsultation()">Akhiri Konsultasi</button>
+      <div id="timer-container" style="display:none;"><span id="timer" class="timer-badge">15:00</span></div>
+      <button class="btn-end" onclick="endConsultation()">Akhiri Sesi</button>
     </div>
   </header>
 
@@ -67,7 +68,7 @@
   <div id="expired-lock" class="lock-screen" style="display:none;">
     <div class="lock-icon">🏁</div>
     <div class="lock-title" style="color:#1e3a8a;">Sesi Konsultasi Selesai</div>
-    <p style="font-size:13px; color:#4b5563;">Konsultasi ini telah diakhiri atau batas waktunya telah habis. Terima kasih telah menggunakan layanan VetBook.</p>
+    <p style="font-size:13px; color:#4b5563;">Konsultasi ini telah diakhiri atau batas waktunya telah habis. Terima kasih telah menggunakan layanan TeleVET.</p>
   </div>
 
   <div id="chat-box" class="chat-container" style="display:none;"></div>
@@ -76,7 +77,7 @@
     <label class="btn-attach" title="Kirim Gambar/Video">
       📎 <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;" onchange="handleMediaUpload(event)">
     </label>
-    <input type="text" id="messageInput" placeholder="Ketik pesan atau lampirkan media..." onkeypress="handleKeyPress(event)">
+    <input type="text" id="messageInput" placeholder="Ketik pesan..." onkeypress="handleKeyPress(event)">
     <button class="btn-send" onclick="sendMessage()">Kirim</button>
   </div>
 
@@ -166,7 +167,7 @@
           document.getElementById('input-area').style.display = 'none';
         }
 
-        document.getElementById('room-title').innerText = `Konsultasi (${role.toUpperCase()}) : ${currentTransaction.client_name}`;
+        document.getElementById('room-title').innerText = `${currentTransaction.client_name}`;
 
         if (role === 'client' && !isTimerRunning && currentRemaining > 0) {
           document.getElementById('timer-container').style.display = 'block';
@@ -175,7 +176,7 @@
       } else {
         document.getElementById('payment-lock').style.display = 'block';
         document.getElementById('lock-price').innerText = `Rp${currentTransaction.amount.toLocaleString('id-ID')}`;
-        const waText = encodeURIComponent(`Halo Admin VetBook, saya ingin konfirmasi pembayaran untuk booking ID: ${txId} atas nama ${currentTransaction.client_name}`);
+        const waText = encodeURIComponent(`Halo Admin TeleVET, saya ingin konfirmasi pembayaran untuk booking ID: ${txId} atas nama ${currentTransaction.client_name}`);
         document.getElementById('wa-confirm-btn').href = `https://wa.me/6281215667746?text=${waText}`;
       }
     }
@@ -187,14 +188,12 @@
         return;
       }
 
-      // Ambil nama dokter dari layanan (misal: "Konsultasi (drh. Najib)")
       let doctorDisplayName = "Dokter Hewan";
       if (currentTransaction && currentTransaction.service) {
         const match = currentTransaction.service.match(/\((drh\.[^\)]+)\)/);
         if (match) doctorDisplayName = match[1];
       }
 
-      // Ambil nama klien dari data transaksi (misal: "Budi (Kucing Cimy)" -> diambil "Budi")
       let clientDisplayName = "Klien";
       if (currentTransaction && currentTransaction.client_name) {
         clientDisplayName = currentTransaction.client_name.split('(')[0].trim();
@@ -342,4 +341,5 @@
     initConsultation();
   </script>
 </body>
-</html>
+  </html>
+  
