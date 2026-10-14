@@ -47,20 +47,26 @@
   </div>
 
   <script>
-    // PIN Akses Keamanan
-    const DOCTOR_PIN = "1234";
+    // PIN Akses Keamanan Admin
     const ADMIN_PIN = "9999";
 
+    // Login Dokter Spesifik berdasarkan PIN Masing-Masing
     function loginDoctor() {
-      const pin = prompt("Masukkan PIN Akses Dokter:");
-      if (pin === DOCTOR_PIN) {
+      const pin = prompt("Masukkan PIN Dokter Praktisi:");
+      if (pin === "1804") {
         sessionStorage.setItem("vet_role", "doctor");
+        sessionStorage.setItem("doctor_name", "drh. Najib");
+        window.location.href = "doctor.html";
+      } else if (pin === "1234") {
+        sessionStorage.setItem("vet_role", "doctor");
+        sessionStorage.setItem("doctor_name", "drh. Bintang");
         window.location.href = "doctor.html";
       } else if (pin !== null) {
-        alert("PIN Dokter salah!");
+        alert("PIN Dokter Salah!");
       }
     }
 
+    // Login Admin
     function loginAdmin() {
       const pin = prompt("Masukkan PIN Akses Admin:");
       if (pin === ADMIN_PIN) {
