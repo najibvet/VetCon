@@ -9,8 +9,11 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: #f3f4f6; color: #1f2937; display: flex; flex-direction: column; height: 100vh; }
     
-    header { background: #0f766e; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: bold; }
+    header { background: #0f766e; color: white; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
     .timer-badge { background: #ef4444; color: white; padding: 4px 8px; border-radius: 6px; font-size: 12px; }
+    .btn-end { background: #991b1b; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
+    .btn-end:hover { background: #7f1d1d; }
     
     .chat-container { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #f9fafb; }
     .message { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.4; word-wrap: break-word; }
@@ -34,7 +37,10 @@
 
   <header id="chat-header" style="display:none;">
     <div id="room-title">Konsultasi VetBook</div>
-    <div id="timer-container" style="display:none;">Waktu Tersisa: <span id="timer" class="timer-badge">15:00</span></div>
+    <div class="header-right">
+      <div id="timer-container" style="display:none;">Waktu: <span id="timer" class="timer-badge">15:00</span></div>
+      <button class="btn-end" onclick="endConsultation()">Akhiri Konsultasi</button>
+    </div>
   </header>
 
   <div id="payment-lock" class="lock-screen" style="display:none;">
@@ -51,9 +57,9 @@
   </div>
 
   <div id="expired-lock" class="lock-screen" style="display:none;">
-    <div class="lock-icon">⌛</div>
-    <div class="lock-title" style="color:#991b1b;">Sesi Telah Berakhir</div>
-    <p style="font-size:13px; color:#4b5563;">Batas waktu konsultasi aktif selama 15 menit telah habis.</p>
+    <div class="lock-icon">🏁</div>
+    <div class="lock-title" style="color:#1e3a8a;">Sesi Konsultasi Selesai</div>
+    <p style="font-size:13px; color:#4b5563;">Konsultasi ini telah diakhiri atau batas waktunya telah habis. Terima kasih telah menggunakan layanan VetBook.</p>
   </div>
 
   <div id="chat-box" class="chat-container" style="display:none;"></div>
@@ -78,70 +84,73 @@
     let currentTransaction = null;
     let chatHistory = [];
     let timerInterval = null;
+    let pollInterval = null;
     let currentRemaining = 900;
     let isTimerRunning = false;
 
     async function initConsultation() {
       if (!txId) return;
 
+      await fetchLatestData();
+
+      // Realtime Websocket Supabase
+      supabaseClient
+        .channel('public:transactions-' + txId)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${txId}` }, payload => {
+          handleIncomingData(payload.new);
+        })
+        .subscribe();
+
+      // Lapisan Pengaman Realtime: Polling data database setiap 3 detik agar penerima PASTI langsung tahu pesan masuk
+      pollInterval = setInterval(fetchLatestData, 3000);
+    }
+
+    async function fetchLatestData() {
       const { data, error } = await supabaseClient
         .from('transactions')
         .select('*')
         .eq('id', txId)
         .single();
 
-      if (error || !data) return;
+      if (!error && data) {
+        handleIncomingData(data);
+      }
+    }
 
-      currentTransaction = data;
-      currentRemaining = data.remaining_seconds !== null ? data.remaining_seconds : 900;
+    function handleIncomingData(newData) {
+      currentTransaction = newData;
       
-      document.getElementById('lock-price').innerText = `Rp${data.amount.toLocaleString('id-ID')}`;
-      const waText = encodeURIComponent(`Halo Admin VetBook, saya ingin konfirmasi pembayaran untuk booking ID: ${txId} atas nama ${data.client_name}`);
-      document.getElementById('wa-confirm-btn').href = `https://wa.me/6281215667746?text=${waText}`;
-
+      if (newData.remaining_seconds !== undefined && !isTimerRunning) {
+        currentRemaining = newData.remaining_seconds;
+      }
+      
       try {
-        chatHistory = JSON.parse(data.chat_history || '[]');
-      } catch(e) { chatHistory = []; }
+        const incomingHistory = JSON.parse(newData.chat_history || '[]');
+        if (JSON.stringify(incomingHistory) !== JSON.stringify(chatHistory)) {
+          chatHistory = incomingHistory;
+          renderChat();
+        }
+      } catch(e) {}
 
       checkStatus();
-
-      // Realtime Listener yang ditingkatkan agar penerima langsung menerima pesan tanpa refresh
-      supabaseClient
-        .channel('public:transactions-' + txId)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${txId}` }, payload => {
-          currentTransaction = payload.new;
-          
-          if (payload.new.remaining_seconds !== undefined && !isTimerRunning) {
-            currentRemaining = payload.new.remaining_seconds;
-          }
-          
-          try {
-            const incomingHistory = JSON.parse(payload.new.chat_history || '[]');
-            // Jika ada pesan baru dari pihak lain, perbarui chatHistory dan render ulang layar penerima seketika
-            if (incomingHistory.length !== chatHistory.length) {
-              chatHistory = incomingHistory;
-              renderChat();
-            }
-          } catch(e) {}
-
-          checkStatus();
-        })
-        .subscribe();
     }
 
     function checkStatus() {
+      if (!currentTransaction) return;
+
+      if (currentTransaction.status === 'Completed' || currentRemaining <= 0) {
+        document.getElementById('expired-lock').style.display = 'block';
+        document.getElementById('payment-lock').style.display = 'none';
+        document.getElementById('chat-header').style.display = 'none';
+        document.getElementById('chat-box').style.display = 'none';
+        document.getElementById('input-area').style.display = 'none';
+        if (timerInterval) clearInterval(timerInterval);
+        if (pollInterval) clearInterval(pollInterval);
+        return;
+      }
+
       if (currentTransaction.status === 'Paid' || role === 'doctor' || role === 'admin') {
         document.getElementById('payment-lock').style.display = 'none';
-
-        if (currentRemaining <= 0 && role === 'client') {
-          document.getElementById('expired-lock').style.display = 'block';
-          document.getElementById('chat-header').style.display = 'none';
-          document.getElementById('chat-box').style.display = 'none';
-          document.getElementById('input-area').style.display = 'none';
-          stopTimer();
-          return;
-        }
-
         document.getElementById('chat-header').style.display = 'flex';
         document.getElementById('chat-box').style.display = 'flex';
 
@@ -159,6 +168,9 @@
         }
       } else {
         document.getElementById('payment-lock').style.display = 'block';
+        document.getElementById('lock-price').innerText = `Rp${currentTransaction.amount.toLocaleString('id-ID')}`;
+        const waText = encodeURIComponent(`Halo Admin VetBook, saya ingin konfirmasi pembayaran untuk booking ID: ${txId} atas nama ${currentTransaction.client_name}`);
+        document.getElementById('wa-confirm-btn').href = `https://wa.me/6281215667746?text=${waText}`;
       }
     }
 
@@ -230,6 +242,19 @@
       reader.readAsDataURL(file);
     }
 
+    // Fungsi untuk Mengakhiri Konsultasi Kapan Saja
+    async function endConsultation() {
+      if (confirm("Apakah Anda yakin ingin mengakhiri sesi konsultasi ini?")) {
+        await supabaseClient
+          .from('transactions')
+          .update({ status: 'Completed', remaining_seconds: 0 })
+          .eq('id', txId);
+        
+        alert("Sesi konsultasi telah diakhiri.");
+        location.reload();
+      }
+    }
+
     function startSmartTimer() {
       isTimerRunning = true;
       updateTimerDisplay();
@@ -243,8 +268,7 @@
           }
         } else {
           stopTimer();
-          saveRemainingTime(0);
-          checkStatus();
+          endConsultation();
         }
       }, 1000);
     }
@@ -291,5 +315,4 @@
     initConsultation();
   </script>
 </body>
-  </html>
-  
+</html>
