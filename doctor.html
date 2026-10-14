@@ -46,7 +46,6 @@
       <a href="index.html" class="back-link">&larr; Keluar</a>
     </header>
 
-    <!-- Ringkasan Keuangan Dokter -->
     <div class="card-grid">
       <div class="card">
         <label>Total Hak Komisi (85%)</label>
@@ -62,19 +61,16 @@
       </div>
     </div>
 
-    <!-- Form Pengajuan Penarikan -->
     <div class="withdraw-box">
       <h3>💸 Pengajuan Penarikan Dana Fee</h3>
       <input type="number" id="withdraw-amount" placeholder="Nominal yang ingin ditarik (Rp)">
-      <input type="text" id="withdraw-bank" placeholder="Info Rekening (Misal: Mandiri 123456 a/n drh Najib)">
+      <input type="text" id="withdraw-bank" placeholder="Info Rekening (Misal: Mandiri 123456 a/n Dokter)">
       <button class="btn-submit" onclick="requestWithdrawal()">Kirim Pengajuan Penarikan</button>
     </div>
 
-    <!-- Riwayat Pencairan -->
     <div class="section-title">📜 Riwayat Pengajuan Penarikan</div>
     <div class="item-list" id="withdrawal-history">Memuat riwayat...</div>
 
-    <!-- Riwayat Pasien / Klien -->
     <div class="section-title">🐾 Riwayat Pasien / Konsultasi Klien</div>
     <div class="item-list" id="patient-history">Memuat data pasien...</div>
   </div>
@@ -95,7 +91,6 @@
     let maxWithdrawable = 0;
 
     async function loadDoctorData() {
-      // 1. Hitung total bagian dokter dari transaksi Paid/Completed
       const { data: txs } = await supabaseClient
         .from('transactions')
         .select('*')
@@ -104,10 +99,12 @@
       let totalEarn = 0;
       let patientHtml = '';
 
+      // Ekstrak kata kunci nama (misal "Najib" atau "Bintang")
+      const nameKey = doctorName.replace("drh.", "").trim();
+
       if (txs) {
         txs.forEach(tx => {
-          // Filter hanya transaksi milik dokter yang sedang login
-          if (tx.service && tx.service.includes(doctorName)) {
+          if (tx.service && tx.service.toLowerCase().includes(nameKey.toLowerCase())) {
             const amount = Number(tx.amount || 0);
             
             if (tx.status === 'Paid' || tx.status === 'Completed') {
@@ -138,11 +135,10 @@
 
       document.getElementById('patient-history').innerHTML = patientHtml || '<p style="padding:10px; color:#9ca3af;">Belum ada riwayat pasien.</p>';
 
-      // 2. Hitung riwayat penarikan (Success & Pending)
       const { data: wds } = await supabaseClient
         .from('withdrawals')
         .select('*')
-        .eq('doctor_name', doctorName)
+        .ilike('doctor_name', `%${nameKey}%`)
         .order('created_at', { ascending: false });
 
       let totalSuccessWithdrawn = 0;
@@ -173,7 +169,6 @@
 
       document.getElementById('withdrawal-history').innerHTML = wdHtml || '<p style="padding:10px; color:#9ca3af;">Belum ada penarikan.</p>';
 
-      // Saldo Sisa Ditarik = Total Hak Komisi - (Penarikan Success + Pending)
       maxWithdrawable = totalEarn - (totalSuccessWithdrawn + totalPendingWithdrawn);
 
       document.getElementById('total-earn').innerText = `Rp${totalEarn.toLocaleString('id-ID')}`;
