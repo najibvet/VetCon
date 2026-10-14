@@ -99,22 +99,27 @@
       const waText = encodeURIComponent(`Halo Admin VetBook, saya ingin konfirmasi pembayaran untuk booking ID: ${txId} atas nama ${data.client_name}`);
       document.getElementById('wa-confirm-btn').href = `https://wa.me/6281215667746?text=${waText}`;
 
+      try {
+        chatHistory = JSON.parse(data.chat_history || '[]');
+      } catch(e) { chatHistory = []; }
+
       checkStatus();
 
-      // Realtime Listener untuk mendeteksi pesan masuk secara langsung
+      // Realtime Listener yang ditingkatkan agar penerima langsung menerima pesan tanpa refresh
       supabaseClient
-        .channel('public:transactions')
+        .channel('public:transactions-' + txId)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${txId}` }, payload => {
           currentTransaction = payload.new;
+          
           if (payload.new.remaining_seconds !== undefined && !isTimerRunning) {
             currentRemaining = payload.new.remaining_seconds;
           }
           
           try {
-            const newHistory = JSON.parse(payload.new.chat_history || '[]');
-            // Update chat jika ada perubahan data
-            if (JSON.stringify(newHistory) !== JSON.stringify(chatHistory)) {
-              chatHistory = newHistory;
+            const incomingHistory = JSON.parse(payload.new.chat_history || '[]');
+            // Jika ada pesan baru dari pihak lain, perbarui chatHistory dan render ulang layar penerima seketika
+            if (incomingHistory.length !== chatHistory.length) {
+              chatHistory = incomingHistory;
               renderChat();
             }
           } catch(e) {}
@@ -147,12 +152,6 @@
         }
 
         document.getElementById('room-title').innerText = `Konsultasi (${role.toUpperCase()}) : ${currentTransaction.client_name}`;
-
-        try {
-          chatHistory = JSON.parse(currentTransaction.chat_history || '[]');
-        } catch(e) { chatHistory = []; }
-
-        renderChat();
 
         if (role === 'client' && !isTimerRunning && currentRemaining > 0) {
           document.getElementById('timer-container').style.display = 'block';
@@ -192,7 +191,6 @@
 
       const senderType = role === 'doctor' ? 'doctor' : 'client';
       
-      // 1. Buat objek pesan baru
       const newMsg = { 
         sender: senderType, 
         text: text, 
@@ -201,13 +199,11 @@
         time: new Date().toISOString() 
       };
 
-      // 2. Tambahkan langsung ke array chat lokal & render SEKETIKA (Optimistic UI)
       chatHistory.push(newMsg);
       renderChat();
 
       if (customText === null) input.value = '';
 
-      // 3. Simpan ke database Supabase di latar belakang
       await supabaseClient
         .from('transactions')
         .update({ chat_history: JSON.stringify(chatHistory) })
@@ -295,4 +291,5 @@
     initConsultation();
   </script>
 </body>
-</html>
+  </html>
+  
