@@ -12,21 +12,25 @@
     h2 { font-size: 16px; color: #0f766e; margin-bottom: 12px; font-weight: bold; }
     .back-link { display: inline-block; margin-bottom: 15px; font-size: 12px; color: #0f766e; text-decoration: none; font-weight: bold; }
     
-    .finance-summary { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 12px; margin-bottom: 24px; }
+    .finance-summary { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 12px; margin-bottom: 20px; }
     .finance-title { font-size: 14px; font-weight: bold; color: #166534; margin-bottom: 10px; }
-    .finance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 8px; }
+    .finance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 8px; }
     .finance-card { background: white; padding: 12px; border-radius: 8px; border: 1px solid #dcfce7; }
     .finance-card label { display: block; font-size: 11px; color: #4b5563; font-weight: bold; }
     .finance-card .val { font-size: 15px; font-weight: bold; color: #0f766e; margin-top: 2px; }
     .finance-card .sub { font-size: 10px; color: #6b7280; margin-top: 2px; }
 
-    .transaction-item { background: #f9fafb; border: 1px solid #e5e7eb; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 12px; }
+    .section-box { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; margin-bottom: 20px; }
+    .section-title { font-size: 14px; font-weight: bold; color: #0f766e; margin-bottom: 10px; }
+
+    .transaction-item, .wd-item { background: #f9fafb; border: 1px solid #e5e7eb; padding: 12px; border-radius: 8px; margin-top: 8px; font-size: 12px; }
     .action-btns { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
     .action-btn { padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: bold; cursor: pointer; border: none; display: inline-block; }
     .btn-approve { background: #16a34a; color: white; }
     .btn-wa-client { background: #25d366; color: white; }
     .btn-wa-doctor { background: #0284c7; color: white; }
     .btn-chat { background: #0f766e; color: white; }
+    .btn-pay { background: #2563eb; color: white; }
   </style>
 </head>
 <body>
@@ -35,19 +39,29 @@
     <a href="index.html" class="back-link">&larr; Keluar ke Gerbang Utama</a>
     <h2>🔐 Panel Kontrol Admin & Keuangan</h2>
 
+    <!-- Ringkasan Keuangan -->
     <div class="finance-summary">
-      <div class="finance-title">💰 Ringkasan Keuangan (Sesi Lunas)</div>
+      <div class="finance-title">💰 Ringkasan Keuangan Platform & Dokter</div>
       <div class="finance-grid" id="finance-cards">
         <div class="finance-card">
           <label>Komisi Platform (15%)</label>
           <div class="val" id="platform-fee-total">Rp0</div>
-          <div class="sub">Total pendapatan masuk</div>
+          <div class="sub">Total pendapatan bersih masuk</div>
         </div>
       </div>
     </div>
 
-    <h2>📋 Seluruh Transaksi & Status Sesi</h2>
-    <div id="transaction-list">Memuat data...</div>
+    <!-- Permintaan Pencairan Dana Dokter -->
+    <div class="section-box">
+      <div class="section-title">💸 Permintaan Penarikan Dana Dokter</div>
+      <div id="withdrawal-list">Memuat permintaan...</div>
+    </div>
+
+    <!-- Seluruh Transaksi Sesi -->
+    <div class="section-box">
+      <div class="section-title">📋 Seluruh Transaksi & Status Sesi</div>
+      <div id="transaction-list">Memuat data...</div>
+    </div>
   </div>
 
   <script>
@@ -60,69 +74,112 @@
     const SUPABASE_KEY = 'sb_publishable_tH-AJIgmuCYlwAjwXUydiw_h_9k902H';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Database Nomor WhatsApp Spesifik Masing-Masing Dokter
     const DOCTOR_PHONE_DIRECTORY = {
       "drh. Najib": "6281215667746",
       "drh. Bintang": "6281230732161"
     };
 
-    // Fungsi utilitas untuk membersihkan nomor HP (mengubah 08xx / +62xx menjadi format 62xx)
     function sanitizePhone(phone) {
       if (!phone) return "";
-      let cleaned = phone.replace(/\D/g, ''); // Hapus semua karakter non-angka
-      if (cleaned.startsWith('0')) {
-        cleaned = '62' + cleaned.substring(1);
-      }
+      let cleaned = phone.replace(/\D/g, '');
+      if (cleaned.startsWith('0')) cleaned = '62' + cleaned.substring(1);
       return cleaned;
     }
 
     async function verifyPayment(id) {
-      const { error } = await supabaseClient
-        .from('transactions')
-        .update({ status: 'Paid' })
-        .eq('id', id);
-
+      const { error } = await supabaseClient.from('transactions').update({ status: 'Paid' }).eq('id', id);
       if (!error) {
         alert("Pembayaran Lunas! Sesi chat Klien telah diaktifkan.");
-        loadTransactions();
-      } else {
-        alert("Gagal memverifikasi pembayaran: " + error.message);
+        loadAllData();
       }
     }
 
-    async function loadTransactions() {
-      const { data, error } = await supabaseClient
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
+    // Fungsi Konfirmasi Admin Bayar Pencairan Dokter
+    async function approveWithdrawal(id) {
+      if (confirm("Apakah Anda sudah mentransfer dana ke rekening dokter yang bersangkutan?")) {
+        const { error } = await supabaseClient
+          .from('withdrawals')
+          .update({ status: 'Success' })
+          .eq('id', id);
 
-      const listDiv = document.getElementById('transaction-list');
-      if (error || !data || data.length === 0) {
-        listDiv.innerHTML = '<p style="font-size:12px; color:#6b7280;">Belum ada transaksi.</p>';
+        if (!error) {
+          alert("Penarikan dikonfirmasi Success! Saldo dokter telah diperbarui.");
+          loadAllData();
+        } else {
+          alert("Gagal mengonfirmasi penarikan: " + error.message);
+        }
+      }
+    }
+
+    async function loadAllData() {
+      // 1. Ambil transaksi
+      const { data: txs } = await supabaseClient.from('transactions').select('*').order('created_at', { ascending: false });
+      
+      // 2. Ambil penarikan dana
+      const { data: wds } = await supabaseClient.from('withdrawals').select('*').order('created_at', { ascending: false });
+
+      // Hitung Penarikan Sukses per Dokter
+      let doctorPaidOut = {}; // { "drh. Najib": 20000 }
+      if (wds) {
+        wds.forEach(w => {
+          if (w.status === 'Success') {
+            if (!doctorPaidOut[w.doctor_name]) doctorPaidOut[w.doctor_name] = 0;
+            doctorPaidOut[w.doctor_name] += Number(w.amount || 0);
+          }
+        });
+      }
+
+      // Render Daftar Penarikan di Admin
+      const wdListDiv = document.getElementById('withdrawal-list');
+      if (!wds || wds.length === 0) {
+        wdListDiv.innerHTML = '<p style="font-size:12px; color:#6b7280;">Belum ada pengajuan penarikan.</p>';
+      } else {
+        let wdHtml = '';
+        wds.forEach(w => {
+          const amt = Number(w.amount || 0);
+          wdHtml += `
+            <div class="wd-item">
+              <strong>${w.doctor_name}</strong> - Meminta: <b>Rp${amt.toLocaleString('id-ID')}</b><br>
+              Rekening: <b>${w.bank_info}</b> | Status: <b style="color:${w.status === 'Success' ? 'green' : 'orange'}">${w.status}</b><br>
+              <div class="action-btns">
+                ${w.status === 'Pending' ? `<button onclick="approveWithdrawal('${w.id}')" class="action-btn btn-pay">💵 Konfirmasi Sudah Bayar</button>` : ''}
+              </div>
+            </div>
+          `;
+        });
+        wdListDiv.innerHTML = wdHtml;
+      }
+
+      // Render Transaksi & Keuangan
+      const txListDiv = document.getElementById('transaction-list');
+      if (!txs || txs.length === 0) {
+        txListDiv.innerHTML = '<p style="font-size:12px; color:#6b7280;">Belum ada transaksi.</p>';
         document.getElementById('platform-fee-total').innerText = 'Rp0';
         return;
       }
 
       let totalPlatformFee = 0;
-      let doctorEarnings = {};
-      let html = '';
+      let doctorGrossEarnings = {}; // Total Hak Dokter
+      let txHtml = '';
 
-      data.forEach(tx => {
+      txs.forEach(tx => {
         const amount = Number(tx.amount || 0);
 
-        if (tx.status === 'Paid') {
+        // PENTING: Hitung keuangan dari status Paid MAUPUN Completed[span_1](start_span)[span_1](end_span)
+        if (tx.status === 'Paid' || tx.status === 'Completed') {
           const pFee = tx.platform_fee ? Number(tx.platform_fee) : (amount * 0.15);
           const dPayout = tx.doctor_payout ? Number(tx.doctor_payout) : (amount * 0.85);
+
           totalPlatformFee += pFee;
 
-          let doctorName = "drh. Najib"; // Default
-          if (tx.service.includes("drh.")) {
+          let doctorName = "drh. Najib";
+          if (tx.service && tx.service.includes("drh.")) {
             const match = tx.service.match(/\((drh\.[^\)]+)\)/);
             if (match) doctorName = match[1];
           }
 
-          if (!doctorEarnings[doctorName]) doctorEarnings[doctorName] = 0;
-          doctorEarnings[doctorName] += dPayout;
+          if (!doctorGrossEarnings[doctorName]) doctorGrossEarnings[doctorName] = 0;
+          doctorGrossEarnings[doctorName] += dPayout;
         }
 
         const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
@@ -130,31 +187,25 @@
         const doctorChatLink = `${baseUrl}consultation.html?id=${tx.id}&role=doctor`;
         const adminViewLink = `${baseUrl}consultation.html?id=${tx.id}&role=admin`;
 
-        // Deteksi dokter yang dipilih dari nama layanan
         let selectedDoctorName = "drh. Najib";
         if (tx.service && tx.service.includes("drh.")) {
           const match = tx.service.match(/\((drh\.[^\)]+)\)/);
           if (match) selectedDoctorName = match[1];
         }
 
-        // Ambil nomor WA dokter yang sesuai dari direktori (fallback ke drh. Najib jika tidak ketemu)
         const doctorPhone = DOCTOR_PHONE_DIRECTORY[selectedDoctorName] || "6281215667746";
-
-        // Format nomor WhatsApp Klien dengan benar (membersihkan awalan 0)
         const clientCleanPhone = sanitizePhone(tx.whatsapp);
 
-        // Pesan WA untuk Klien
-        const msgClient = `Halo Kak ${tx.client_name},\n\nPembayaran untuk layanan ${tx.service} di VetBook telah dikonfirmasi LUNAS.\n\nSilakan klik tautan berikut untuk masuk ke ruang percakapan dengan ${selectedDoctorName} (waktu konsultasi aktif 15 menit):\n${clientChatLink}`;
+        const msgClient = `Halo Kak ${tx.client_name},\n\nPembayaran untuk layanan ${tx.service} di VetBook telah dikonfirmasi LUNAS.\n\nSilakan klik tautan berikut untuk masuk ke ruang percakapan dengan ${selectedDoctorName}:\n${clientChatLink}`;
         const linkWaClient = `https://wa.me/${clientCleanPhone}?text=${encodeURIComponent(msgClient)}`;
 
-        // Pesan WA untuk Dokter Pilihan
-        const msgDoctor = `Halo ${selectedDoctorName}, ada pesanan konsultasi baru yang sudah LUNAS di VetBook:\n\n- Pasien: ${tx.client_name}\n- Layanan: ${tx.service}\n- Biaya: Rp${amount.toLocaleString('id-ID')}\n\nSilakan akses ruang percakapan dengan klien melalui tautan berikut:\n${doctorChatLink}`;
+        const msgDoctor = `Halo ${selectedDoctorName}, ada pesanan konsultasi baru yang sudah LUNAS di VetBook:\n\n- Pasien: ${tx.client_name}\n- Layanan: ${tx.service}\n\nSilakan akses ruang percakapan:\n${doctorChatLink}`;
         const linkWaDoctor = `https://wa.me/${doctorPhone}?text=${encodeURIComponent(msgDoctor)}`;
 
-        html += `
+        txHtml += `
           <div class="transaction-item">
             <strong>${tx.client_name}</strong> (${tx.service})<br>
-            WA Klien: <b>${tx.whatsapp}</b> | Biaya: <b>Rp${amount.toLocaleString('id-ID')}</b> | Status: <b style="color:${tx.status === 'Paid' ? 'green' : 'orange'}">${tx.status}</b><br>
+            WA: <b>${tx.whatsapp}</b> | Biaya: <b>Rp${amount.toLocaleString('id-ID')}</b> | Status: <b style="color:${tx.status === 'Completed' ? 'blue' : (tx.status === 'Paid' ? 'green' : 'orange')}">${tx.status}</b><br>
             <div class="action-btns">
               ${tx.status === 'Pending' ? `<button onclick="verifyPayment('${tx.id}')" class="action-btn btn-approve">✅ Konfirmasi Lunas</button>` : ''}
               <a href="${linkWaClient}" target="_blank" class="action-btn btn-wa-client">💬 WA Notif Klien</a>
@@ -165,27 +216,32 @@
         `;
       });
 
-      listDiv.innerHTML = html;
+      txListDiv.innerHTML = txHtml;
 
+      // Render Laporan Ringkasan Keuangan
       document.getElementById('platform-fee-total').innerText = `Rp${totalPlatformFee.toLocaleString('id-ID')}`;
+
       const financeGrid = document.getElementById('finance-cards');
       const platformCard = financeGrid.firstElementChild;
       financeGrid.innerHTML = '';
       financeGrid.appendChild(platformCard);
 
-      for (const [docName, totalEarn] of Object.entries(doctorEarnings)) {
+      for (const [docName, totalGross] of Object.entries(doctorGrossEarnings)) {
+        const paidOut = doctorPaidOut[docName] || 0;
+        const currentBalance = totalGross - paidOut; // Sisa saldo yang belum ditarik
+
         const cardHtml = `
           <div class="finance-card">
-            <label>Bagian ${docName} (85%)</label>
-            <div class="val">Rp${totalEarn.toLocaleString('id-ID')}</div>
-            <div class="sub">Total pendapatan dokter</div>
+            <label>Fee ${docName} (Sisa / Total)</label>
+            <div class="val">Rp${currentBalance.toLocaleString('id-ID')}</div>
+            <div class="sub">Total Hak: Rp${totalGross.toLocaleString('id-ID')} | Sudah Ditarik: Rp${paidOut.toLocaleString('id-ID')}</div>
           </div>
         `;
         financeGrid.insertAdjacentHTML('beforeend', cardHtml);
       }
     }
 
-    loadTransactions();
+    loadAllData();
   </script>
 </body>
 </html>
