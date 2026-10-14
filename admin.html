@@ -14,7 +14,7 @@
     
     .transaction-item { background: #f9fafb; border: 1px solid #e5e7eb; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 12px; }
     .action-btns { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-    .action-btn { padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: bold; cursor: pointer; border: none; }
+    .action-btn { padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: bold; cursor: pointer; border: none; display: inline-block; }
     .btn-approve { background: #16a34a; color: white; }
     .btn-wa { background: #25d366; color: white; }
     .btn-chat { background: #0f766e; color: white; }
@@ -31,7 +31,7 @@
   </div>
 
   <script>
-    // Proteksi Keamanan
+    // Proteksi Keamanan Role Admin
     if (sessionStorage.getItem("vet_role") !== "admin") {
       alert("Akses ditolak! Silakan login sebagai Admin.");
       window.location.href = "index.html";
@@ -39,56 +39,4 @@
 
     const SUPABASE_URL = 'https://tdoostchqlatiwzuxcmo.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_tH-AJIgmuCYlwAjwXUydiw_h_9k902H';
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    async function verifyPayment(id) {
-      const { error } = await supabaseClient
-        .from('transactions')
-        .update({ status: 'Paid' })
-        .eq('id', id);
-
-      if (!error) {
-        alert("Pembayaran Lunas! Sesi chat Klien telah diaktifkan.");
-        loadTransactions();
-      }
-    }
-
-    async function loadTransactions() {
-      const { data, error } = await supabaseClient
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      const listDiv = document.getElementById('transaction-list');
-      if (error || !data || data.length === 0) {
-        listDiv.innerHTML = '<p style="font-size:12px; color:#6b7280;">Belum ada transaksi.</p>';
-        return;
-      }
-
-      let html = '';
-      data.forEach(tx => {
-        const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
-        const chatLink = `${baseUrl}consultation.html?id=${tx.id}&role=client`;
-        const waText = encodeURIComponent(`Halo Kak, pembayaran konsultasi ${tx.service} di VetBook telah dikonfirmasi LUNAS. Silakan masuk ke ruang chat: ${chatLink}`);
-        const waLink = `https://wa.me/${tx.whatsapp}?text=${waText}`;
-
-        html += `
-          <div class="transaction-item">
-            <strong>${tx.client_name}</strong> (${tx.service})<br>
-            WA: <b>${tx.whatsapp}</b> | Biaya: <b>Rp${tx.amount.toLocaleString('id-ID')}</b> | Status: <b style="color:${tx.status === 'Paid' ? 'green' : 'orange'}">${tx.status}</b><br>
-            <div class="action-btns">
-              ${tx.status === 'Pending' ? `<button onclick="verifyPayment('${tx.id}')" class="action-btn btn-approve">✅ Konfirmasi Lunas</button>` : ''}
-              <a href="${waLink}" target="_blank" class="action-btn btn-wa">💬 WA Klien</a>
-              <a href="${chatLink}" target="_blank" class="action-btn btn-chat">🩺 Lihat Chat Klien</a>
-            </div>
-          </div>
-        `;
-      });
-      listDiv.innerHTML = html;
-    }
-
-    loadTransactions();
-  </script>
-</body>
-  </html>
-  
+    
