@@ -101,6 +101,7 @@
 
       checkStatus();
 
+      // Realtime Listener untuk mendeteksi pesan masuk secara langsung
       supabaseClient
         .channel('public:transactions')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${txId}` }, payload => {
@@ -108,6 +109,16 @@
           if (payload.new.remaining_seconds !== undefined && !isTimerRunning) {
             currentRemaining = payload.new.remaining_seconds;
           }
+          
+          try {
+            const newHistory = JSON.parse(payload.new.chat_history || '[]');
+            // Update chat jika ada perubahan data
+            if (JSON.stringify(newHistory) !== JSON.stringify(chatHistory)) {
+              chatHistory = newHistory;
+              renderChat();
+            }
+          } catch(e) {}
+
           checkStatus();
         })
         .subscribe();
@@ -129,7 +140,6 @@
         document.getElementById('chat-header').style.display = 'flex';
         document.getElementById('chat-box').style.display = 'flex';
 
-        // Jika role Admin, Sembunyikan footer input (Read-Only)
         if (role !== 'admin' && (role !== 'client' || currentRemaining > 0)) {
           document.getElementById('input-area').style.display = 'flex';
         } else {
@@ -174,37 +184,43 @@
     }
 
     async function sendMessage(customText = null, customType = 'text', mediaUrl = null) {
-      if (role === 'admin') return; // Admin read-only
+      if (role === 'admin') return;
 
       const input = document.getElementById('messageInput');
       const text = customText !== null ? customText : input.value.trim();
       if (!text && !mediaUrl) return;
 
       const senderType = role === 'doctor' ? 'doctor' : 'client';
-      chatHistory.push({ 
+      
+      // 1. Buat objek pesan baru
+      const newMsg = { 
         sender: senderType, 
         text: text, 
         type: customType, 
         url: mediaUrl, 
         time: new Date().toISOString() 
-      });
+      };
 
+      // 2. Tambahkan langsung ke array chat lokal & render SEKETIKA (Optimistic UI)
+      chatHistory.push(newMsg);
+      renderChat();
+
+      if (customText === null) input.value = '';
+
+      // 3. Simpan ke database Supabase di latar belakang
       await supabaseClient
         .from('transactions')
         .update({ chat_history: JSON.stringify(chatHistory) })
         .eq('id', txId);
-
-      if (customText === null) input.value = '';
     }
 
     function handleKeyPress(e) { if (e.key === 'Enter') sendMessage(); }
 
-    // Fungsi Handle Kirim Gambar / Video (Base64)
     function handleMediaUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
 
-      if (file.size > 2 * 1024 * 1024) { // Batas 2MB untuk penyimpanan stabil
+      if (file.size > 2 * 1024 * 1024) {
         alert("Ukuran file terlalu besar! Maksimal 2MB.");
         return;
       }
@@ -279,5 +295,4 @@
     initConsultation();
   </script>
 </body>
-      </html>
-      
+</html>
