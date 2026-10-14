@@ -47,10 +47,8 @@
   </div>
 
   <script>
-    // PIN Akses Keamanan Admin
     const ADMIN_PIN = "9999";
 
-    // Login Dokter Spesifik berdasarkan PIN Masing-Masing
     function loginDoctor() {
       const pin = prompt("Masukkan PIN Dokter Praktisi:");
       if (pin === "1804") {
@@ -66,7 +64,6 @@
       }
     }
 
-    // Login Admin
     function loginAdmin() {
       const pin = prompt("Masukkan PIN Akses Admin:");
       if (pin === ADMIN_PIN) {
