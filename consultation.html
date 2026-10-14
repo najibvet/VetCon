@@ -25,10 +25,18 @@
     .btn-wa { background: #22c55e; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
 
     /* Area Chat */
-    .chat-box { flex: 1; padding: 14px; overflow-y: auto; background: #f9fafb; display: flex; flex-direction: column; gap: 10px; }
-    .msg { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; word-break: break-word; }
-    .msg-client { background: #dcfce7; color: #166534; align-self: flex-end; border-bottom-right-radius: 2px; }
-    .msg-doctor { background: #ffffff; color: #1f2937; align-self: flex-start; border: 1px solid #e5e7eb; border-bottom-left-radius: 2px; }
+    .chat-box { flex: 1; padding: 14px; overflow-y: auto; background: #f9fafb; display: flex; flex-direction: column; gap: 12px; }
+    .msg-group { display: flex; flex-direction: column; max-width: 80%; }
+    .msg-group.client-group { align-self: flex-end; align-items: flex-end; }
+    .msg-group.doctor-group { align-self: flex-start; align-items: flex-start; }
+
+    .sender-label { font-size: 10.5px; font-weight: bold; margin-bottom: 3px; padding: 0 4px; }
+    .client-group .sender-label { color: #15803d; }
+    .doctor-group .sender-label { color: #0f766e; }
+
+    .msg { padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; word-break: break-word; }
+    .msg-client { background: #dcfce7; color: #166534; border-bottom-right-radius: 2px; }
+    .msg-doctor { background: #ffffff; color: #1f2937; border: 1px solid #e5e7eb; border-bottom-left-radius: 2px; }
     .chat-media { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 4px; display: block; cursor: pointer; }
 
     /* Input Footer */
@@ -88,7 +96,7 @@
     </header>
 
     <div class="chat-box" id="chatBox">
-      <!-- Pesan Chat & Foto/Video Muncul Di Sini -->
+      <!-- Chat dengan Label Pengirim Akan Tampil Di Sini -->
     </div>
 
     <footer>
@@ -154,6 +162,17 @@
       }
     }
 
+    function extractDoctorName(serviceStr) {
+      if (!serviceStr) return "Dokter Praktisi";
+      const match = serviceStr.match(/\((drh\.[^\)]+)\)/i);
+      return match ? match[1] : "Dokter Praktisi";
+    }
+
+    function extractClientName(clientStr) {
+      if (!clientStr) return "Klien";
+      return clientStr.split('(')[0].trim();
+    }
+
     function renderChat(chatHistoryJson) {
       const box = document.getElementById('chatBox');
       box.innerHTML = '';
@@ -163,21 +182,34 @@
         messages = typeof chatHistoryJson === 'string' ? JSON.parse(chatHistoryJson) : (chatHistoryJson || []);
       } catch (e) { messages = []; }
 
+      const clientName = currentTx ? extractClientName(currentTx.client_name) : "Klien";
+      const doctorName = currentTx ? extractDoctorName(currentTx.service) : "Dokter Praktisi";
+
       messages.forEach(m => {
-        const div = document.createElement('div');
-        div.className = `msg ${m.role === 'client' ? 'msg-client' : 'msg-doctor'}`;
-        
+        const groupDiv = document.createElement('div');
+        const isClient = m.role === 'client';
+        groupDiv.className = `msg-group ${isClient ? 'client-group' : 'doctor-group'}`;
+
+        const senderLabel = document.createElement('div');
+        senderLabel.className = 'sender-label';
+        senderLabel.innerText = isClient ? clientName : doctorName;
+        groupDiv.appendChild(senderLabel);
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `msg ${isClient ? 'msg-client' : 'msg-doctor'}`;
+
         if (m.type === 'image') {
-          div.innerHTML = `<a href="${m.url}" target="_blank"><img src="${m.url}" class="chat-media" alt="Foto"></a>`;
-          if (m.text) div.innerHTML += `<div>${m.text}</div>`;
+          msgDiv.innerHTML = `<a href="${m.url}" target="_blank"><img src="${m.url}" class="chat-media" alt="Foto"></a>`;
+          if (m.text) msgDiv.innerHTML += `<div>${m.text}</div>`;
         } else if (m.type === 'video') {
-          div.innerHTML = `<video src="${m.url}" controls class="chat-media"></video>`;
-          if (m.text) div.innerHTML += `<div>${m.text}</div>`;
+          msgDiv.innerHTML = `<video src="${m.url}" controls class="chat-media"></video>`;
+          if (m.text) msgDiv.innerHTML += `<div>${m.text}</div>`;
         } else {
-          div.innerText = m.text;
+          msgDiv.innerText = m.text;
         }
 
-        box.appendChild(div);
+        groupDiv.appendChild(msgDiv);
+        box.appendChild(groupDiv);
       });
 
       box.scrollTop = box.scrollHeight;
@@ -207,7 +239,6 @@
       }
     }
 
-    // Fungsi Unggah Foto / Video ke Supabase Storage
     async function uploadMedia(event) {
       const file = event.target.files[0];
       if (!file || !currentTx) return;
@@ -220,13 +251,11 @@
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `consultations/${fileName}`;
 
-      // Upload file ke bucket 'chat-media' di Supabase
       const { data, error } = await supabaseClient.storage
         .from('chat-media')
         .upload(filePath, file);
 
       if (error) {
-        // Fallback jika bucket storage belum siap -> gunakan Base64 DataURL (untuk file gambar/video kecil)
         const reader = new FileReader();
         reader.onload = async function(e) {
           const fileType = file.type.startsWith('video') ? 'video' : 'image';
@@ -297,5 +326,5 @@
     loadTransaction();
   </script>
 </body>
-  </html>
+</html>
   
